@@ -5,7 +5,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import PolynomialFeatures
 
 import pandas as pd
-from pyspark.ml.feature import OneHotEncoder
+from pyspark.ml.feature import OHE
 import pyspark.sql.functions as F
 
 import data
