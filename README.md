@@ -14,7 +14,7 @@ appID,appCategory
 positionID,sitesetID,positionType
 2150,1,0
 
-用户安装流水==> user_app_actions.csv <==
+用户安装流水 ==> user_app_actions.csv <==
 userID,installTime,appID
 1,182032,933
 
