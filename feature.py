@@ -5,13 +5,13 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import PolynomialFeatures
 
 import pandas as pd
-from pyspark.ml.feature import OHE
+from pyspark.ml.feature import OneHotEncoder as OHE
 import pyspark.sql.functions as F
 
 import data
 
 
-def basic_features():
+def basic_features(train=True):
     sess, df_train = data.load_train()
     df_train.show(n=5)
 
@@ -24,7 +24,8 @@ def basic_features():
     _, df_position = data.load_position()
     df_position.show(5)
 
-    df = df_train.join(df_ad, on='creativeID', how="left_outer").select("*").collect()
+    df = df_train.join(
+        df_ad, on='creativeID', how="left_outer").select("*").toDF('all')
     df.show(5)
 
 

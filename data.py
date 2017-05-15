@@ -62,7 +62,7 @@ def load_user_installedapps():
     return load_file(FILE_USER_INSTALLEDAPPS, 'user_installedapps')
 
 
-ss, ad = load_ad()
-print ad.head(5)
-mm = ss.sql("select adID from ad")
-print mm.toPandas()
+# ss, ad = load_ad()
+# print ad.head(5)
+# mm = ss.sql("select adID from ad")
+# print mm.toPandas()
