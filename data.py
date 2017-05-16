@@ -1,7 +1,8 @@
 # coding: utf-8
 # pylint: disable=C0103, C0111
 
-from pyspark.sql import  SparkSession
+from pyspark.sql import SparkSession
+import pandas as pd
 
 FILE_AD = r'../ad.csv'
 FILE_APP_CATEGORIES = r'../app_categories.csv'
@@ -24,6 +25,10 @@ def load_file(file_name, view_name):
     df = sess.read.csv(file_name, inferSchema=True, header=True)
     df.createOrReplaceTempView(view_name)
     return sess, df
+
+
+def read_as_pandas(filename):
+    return pd.read_csv(filename)
 
 
 def load_ad():
@@ -62,7 +67,10 @@ def load_user_installedapps():
     return load_file(FILE_USER_INSTALLEDAPPS, 'user_installedapps')
 
 
-# ss, ad = load_ad()
-# print ad.head(5)
-# mm = ss.sql("select adID from ad")
-# print mm.toPandas()
+if __name__ == '__main__':
+    # ss, ad = load_ad()
+    print ad.head(5)
+    mm = ss.sql("select adID from ad")
+    print mm.toPandas()
+    print read_as_pandas(FILE_AD).head(5)
+    

@@ -7,7 +7,7 @@ creativeID,adID,camgaignID,advertiserID,appID,appPlatform
 4079,2318,147,80,14,2
 
 APP类别==> app_categories.csv <==
-appID,appCategory
+appID,appCategory(共28个类别)
 14,2
 
 广告位==> position.csv <==
@@ -19,7 +19,7 @@ userID,installTime,appID
 1,182032,933
 
 用户==> user.csv <==
-userID,age,gender,education,marriageStatus,haveBaby,hometown,residence
+userID,age,gender,education,marriageStatus,haveBaby,hometown(365),residence(400-二级编码)
 1,42,1,0,2,0,512,503
 
 用户已经安装的APP==> user_installedapps.csv <==

@@ -36,7 +36,7 @@ def RF(x, y, pred_x):
     """
     print '----rf-----'
     print x.shape
-    print pre_x.shape
+    print pred_x.shape
 
     posnum = y[y == 1].shape[0]
     negnum = y[y == 0].shape[0]
@@ -44,9 +44,8 @@ def RF(x, y, pred_x):
     weight = float(posnum) / (posnum + negnum)
     print 'weight:', weight
 
-    if not submit_flag:
-        xtrain, xvalid, ytrain, yvalid = train_test_split(
-            x, y, test_size=0.2, random_state=0)
+    xtrain, xvalid, ytrain, yvalid = train_test_split(
+        x, y, test_size=0.2, random_state=0)
 
     clf = RandomForestClassifier(n_estimators=500,
                                  max_depth=6,
@@ -61,24 +60,25 @@ def RF(x, y, pred_x):
     print importances[indices]
 
     imp = pd.DataFrame(importances, columns=['imp'])
-    imp.to_csv('imp.csv', index=False)
+    imp.to_csv('importances.csv', index=False)
 
-    if not submit_flag:
-        test_pred = clf.predict_proba(xvalid)
-        logloss(yvalid, test_pred[:, 1])
-    pred = clf.predict_proba(pre_x)
+    test_pred = clf.predict_proba(xvalid)
+    logloss(yvalid, test_pred[:, 1])
+    pred = clf.predict_proba(pred_x)
     return pred[:, 1], indices
 
 
 def XGB(X, y, pred_x):
     pass
 
+
 def NN(X, y):
     pass
 
 
 def main():
-    pass
+    train_x, train_y, test_x, inst = load_feature(from_file=True)
+    RF(train_x, train_y, test_x)
 
 
 if __name__ == '__main__':
