@@ -99,7 +99,7 @@ def get_tf_feature(gen_ffm=False):
 
     if gen_ffm:
         df_concate = pd.concat([df_train, df_test])
-        list_count = [(c, df_concate[c].unique.size()[0]) for f in df_concate.columns]
+        list_count = [(c, df_concate[c].unique().shape[0]) for c in df_concate.columns]
         dict_column2field = {
             u'connectionType': 0,
             u'telecomsOperator':  0,
@@ -144,14 +144,13 @@ def get_tf_feature(gen_ffm=False):
         columns_labels = np.asarray(columns_labels)
 
         def to_fm(filename, data, pre=False):
-            with open(filename) as f:
+            with open(filename, 'w') as f:
                 for i in range(data.shape[0]):
                     row_indice = data.getrow(i).nonzero()
                     row_values = data.getrow(i)[row_indice]
                     row_field = [dict_column2field[c]
                                  for c in columns_labels[row_indice[1]]]
-                    line = ['{}:{}:{}'.format(row_field[i], row_indice[1][i], row_values[
-                        i]) for i in range(len(row_field))]
+                    line = ['{}:{}:{}'.format(row_field[i], row_indice[1][i], row_values[i]) for i in range(len(row_field))]
                     if not pre:
                         line = [str(train_y[i])] + line
                     else:
@@ -160,8 +159,8 @@ def get_tf_feature(gen_ffm=False):
 
                 f.write('\n')
 
-        to_ffm('train_x.ffm', train_x)
-        to_ffm('test_x.ffm', test_x, True)
+        to_fm('train_x.ffm', train_x)
+        to_fm('test_x.ffm', test_x, True)
 
     return train_x, train_y, test_x, inst_id
 
