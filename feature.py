@@ -28,24 +28,24 @@ def get_feature(for_train=True):
     not_ohe = []
     to_drop = []
 
-    ## creative realated
+    # creative realated
     df_ad = read_as_pandas(FILE_AD)
     df_ad = df_ad[['creativeID', 'appID', 'appPlatform']]
     df_app_category = read_as_pandas(FILE_APP_CATEGORIES)
     df_result = pd.merge(df_file, df_ad, how='left', on='creativeID')
     df_result = pd.merge(df_result, df_app_category, how='left', on='appID')
 
-    ## user realated
+    # user realated
     df_user = read_as_pandas(FILE_USER)
-    df_user['age'] = np.round(df_user['age'] / 10).astype(int)  ## 年龄段
+    df_user['age'] = np.round(df_user['age'] / 10).astype(int)  # 年龄段
     df_user['hometown_p'] = np.round(df_user['hometown'] / 100).astype(
-        int)  ## 取省份
+        int)  # 取省份
     df_user['hometown_c'] = np.round(df_user['hometown'] % 100).astype(
-        int)  ## 城市
+        int)  # 城市
     df_user['residence_p'] = np.round(df_user['residence'] / 100).astype(
-        int)  ## 取省份
+        int)  # 取省份
     df_user['residence_c'] = np.round(df_user['residence'] % 100).astype(
-        int)  ## 城市
+        int)  # 城市
     df_result = pd.merge(df_result, df_user, how='left', on='userID')
 
     to_drop += [
@@ -53,10 +53,10 @@ def get_feature(for_train=True):
         'residence',
     ]
 
-    ## position related
+    # position related
     df_position = read_as_pandas(FILE_POSITION)
     df_result = pd.merge(df_result, df_position, how='left', on='positionID')
-    ## installed app related
+    # installed app related
     # 已安装列表是否存在该应用、同类应用的数量
 
     # 最近是否安装了该应用或者同类应用
@@ -65,7 +65,7 @@ def get_feature(for_train=True):
 
     # 该app被安装的数量
 
-    ## context
+    # context
     df_result['clickTime_day'] = df_result['clickTime'].astype(str).str.slice(
         0, 2)
     df_result['clickTime_hour'] = df_result['clickTime'].astype(str).str.slice(
@@ -73,7 +73,7 @@ def get_feature(for_train=True):
     df_result['clickTime_minute'] = df_result['clickTime'].astype(
         str).str.slice(4, 6)
 
-    ## remove unrelated
+    # remove unrelated
     to_drop += ['clickTime', 'creativeID', 'userID', 'positionID', 'appID']
 
     if for_train:
@@ -99,30 +99,29 @@ def get_tf_feature(gen_ffm=False):
 
     if gen_ffm:
         df_concate = pd.concat([df_train, df_test])
-        list_count = [(c,df_concate[c].unique.size()[0]} for f in df_concate.columns]
+        list_count = [(c, df_concate[c].unique.size()[0]} for f in df_concate.columns]
         dict_column2field = [
-            u'connectionType',: 0
-            u'telecomsOperator',: 0
-            u'clickTime_day',: 0
-            u'clickTime_minute',: 0
-            u'clickTime_hour',: 0
-            u'appPlatform',: 1
-            u'appCategory',: 1
-            u'age',: 2
-            u'gender',: 2
-            u'education',: 2
-            u'marriageStatus',: 2
-            u'haveBaby',: 2
-            u'hometown',: 2
-            u'residence',: 2
-            u'hometown_p',: 2
-            u'hometown_c',: 2
-            u'residence_p',: 2
-            u'residence_c',: 2
-            u'sitesetID',: 3
-            u'positionType',: 3
+            u'connectionType', : 0
+            u'telecomsOperator', : 0
+            u'clickTime_day', : 0
+            u'clickTime_minute', : 0
+            u'clickTime_hour', : 0
+            u'appPlatform', : 1
+            u'appCategory', : 1
+            u'age', : 2
+            u'gender', : 2
+            u'education', : 2
+            u'marriageStatus', : 2
+            u'haveBaby', : 2
+            u'hometown', : 2
+            u'residence', : 2
+            u'hometown_p', : 2
+            u'hometown_c', : 2
+            u'residence_p', : 2
+            u'residence_c', : 2
+            u'sitesetID', : 3
+            u'positionType', : 3
         ]
-
 
     idx_to_ohe = [i for i, j in enumerate(columns) if j not in not_ohe]
     encoder = OneHotEncoder(categorical_features=idx_to_ohe)
@@ -137,24 +136,36 @@ def get_tf_feature(gen_ffm=False):
     pickle.dump(test_x, open('test_x.pkl', 'wb'), 2)
     pickle.dump(inst_id, open('inst_id.pkl', 'wb'), 2)
 
-
     if gen_ffm:
         columns_labels = []
         for label, count in list_count:
-            columns_labels+=[label]*count
-        
-        columns_labels=np.asarray(columns_labels)
-        
-        with open('ffm.train') as f:
-            for i in range(train_x.shape[0]):
-                row_indice = train_x.getrow(i).nonzero()
-                row_values = trian_x.getrow(i)[row_indice]
-                row_field = [dict_column2field[c] for c in columns_labels[row_indice[1]]]
+            columns_labels += [label] * count
+
+        columns_labels = np.asarray(columns_labels)
+
+        def to_fm(filename, data)
+            with open(filename) as f:
+                for i in range(data.shape[0]):
+                    row_indice = data.getrow(i).nonzero()
+                    row_values = data.getrow(i)[row_indice]
+                    row_field = [dict_column2field[c]
+                                 for c in columns_labels[row_indice[1]]]
+                    line = ['{}:{}:{}'.format(row_field[i], row_indice[1][i], row_values[
+                        i]) for i in range(len(row_field))]
+                    line = [train_y[i]] + line
+                    f.write(' '.join(line) + "\n")
+
+            f.write('\n')
+
+        to_ffm('train_x.ffm', train_x)
+        to_ffm('test_x.ffm', test_x)
 
     return train_x, train_y, test_x, inst_id
 
+
 def to_ffm():
     pass
+
 
 def load_feature(from_file=True):
     """
