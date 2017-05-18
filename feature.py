@@ -155,7 +155,8 @@ def get_tf_feature(gen_ffm=False):
             with open(filename, 'w') as f:
                 for i in range(data.shape[0]):
                     row_indice = data.getrow(i).nonzero()
-                    row_values = np.squeeze(data[row_indice])
+                    row_values = data[row_indice]
+                    row_values = np.squeeze(row_values, axis=0)
                     row_field = np.asarray([
                         dict_column2field[c]
                         for c in columns_labels[row_indice[1]]
