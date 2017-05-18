@@ -99,29 +99,29 @@ def get_tf_feature(gen_ffm=False):
 
     if gen_ffm:
         df_concate = pd.concat([df_train, df_test])
-        list_count = [(c, df_concate[c].unique.size()[0]} for f in df_concate.columns]
-        dict_column2field = [
-            u'connectionType', : 0
-            u'telecomsOperator', : 0
-            u'clickTime_day', : 0
-            u'clickTime_minute', : 0
-            u'clickTime_hour', : 0
-            u'appPlatform', : 1
-            u'appCategory', : 1
-            u'age', : 2
-            u'gender', : 2
-            u'education', : 2
-            u'marriageStatus', : 2
-            u'haveBaby', : 2
-            u'hometown', : 2
-            u'residence', : 2
-            u'hometown_p', : 2
-            u'hometown_c', : 2
-            u'residence_p', : 2
-            u'residence_c', : 2
-            u'sitesetID', : 3
-            u'positionType', : 3
-        ]
+        list_count = [(c, df_concate[c].unique.size()[0]) for f in df_concate.columns]
+        dict_column2field = {
+            u'connectionType': 0,
+            u'telecomsOperator':  0,
+            u'clickTime_day':  0,
+            u'clickTime_minute':  0,
+            u'clickTime_hour':  0,
+            u'appPlatform':  1,
+            u'appCategory':  1,
+            u'age':  2,
+            u'gender':  2,
+            u'education':  2,
+            u'marriageStatus':  2,
+            u'haveBaby':  2,
+            u'hometown':  2,
+            u'residence':  2,
+            u'hometown_p':  2,
+            u'hometown_c':  2,
+            u'residence_p':  2,
+            u'residence_c':  2,
+            u'sitesetID':  3,
+            u'positionType':  3,
+        }
 
     idx_to_ohe = [i for i, j in enumerate(columns) if j not in not_ohe]
     encoder = OneHotEncoder(categorical_features=idx_to_ohe)
@@ -143,7 +143,7 @@ def get_tf_feature(gen_ffm=False):
 
         columns_labels = np.asarray(columns_labels)
 
-        def to_fm(filename, data)
+        def to_fm(filename, data, pre=False):
             with open(filename) as f:
                 for i in range(data.shape[0]):
                     row_indice = data.getrow(i).nonzero()
@@ -152,13 +152,16 @@ def get_tf_feature(gen_ffm=False):
                                  for c in columns_labels[row_indice[1]]]
                     line = ['{}:{}:{}'.format(row_field[i], row_indice[1][i], row_values[
                         i]) for i in range(len(row_field))]
-                    line = [train_y[i]] + line
+                    if not pre:
+                        line = [str(train_y[i])] + line
+                    else:
+                        line = [str(-1)] + line
                     f.write(' '.join(line) + "\n")
 
-            f.write('\n')
+                f.write('\n')
 
         to_ffm('train_x.ffm', train_x)
-        to_ffm('test_x.ffm', test_x)
+        to_ffm('test_x.ffm', test_x, True)
 
     return train_x, train_y, test_x, inst_id
 
@@ -182,4 +185,4 @@ def load_feature(from_file=True):
 if __name__ == '__main__':
     # df = get_feature(False)
     # print df.head(5)
-    get_tf_feature()
+    get_tf_feature(True)
