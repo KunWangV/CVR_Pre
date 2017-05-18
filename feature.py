@@ -89,43 +89,51 @@ def get_tf_feature(gen_ffm=False):
     train_y = np.round(df_train['label']).astype(int).values
     df_train.drop('label', 1, inplace=True)
     print df_train.columns
+    df_train.fillna(0, inplace=True)
     train_x = df_train.values
     columns = df_train.columns
 
     df_test, not_ohe = get_feature(False)
+    df_test.fillna(0, inplace=True)
     inst_id = df_test['instanceID'].values
     df_test.drop(['label', 'instanceID'], axis=1, inplace=True)
     test_x = df_test.values
 
     if gen_ffm:
         df_concate = pd.concat([df_train, df_test])
-        list_count = [(c, df_concate[c].unique().shape[0]) for c in df_concate.columns]
+        list_count = [(c, df_concate[c].unique().shape[0])
+                      for c in df_concate.columns]
         dict_column2field = {
             u'connectionType': 0,
-            u'telecomsOperator':  0,
-            u'clickTime_day':  0,
-            u'clickTime_minute':  0,
-            u'clickTime_hour':  0,
-            u'appPlatform':  1,
-            u'appCategory':  1,
-            u'age':  2,
-            u'gender':  2,
-            u'education':  2,
-            u'marriageStatus':  2,
-            u'haveBaby':  2,
-            u'hometown':  2,
-            u'residence':  2,
-            u'hometown_p':  2,
-            u'hometown_c':  2,
-            u'residence_p':  2,
-            u'residence_c':  2,
-            u'sitesetID':  3,
-            u'positionType':  3,
+            u'telecomsOperator': 0,
+            u'clickTime_day': 0,
+            u'clickTime_minute': 0,
+            u'clickTime_hour': 0,
+            u'appPlatform': 1,
+            u'appCategory': 1,
+            u'age': 2,
+            u'gender': 2,
+            u'education': 2,
+            u'marriageStatus': 2,
+            u'haveBaby': 2,
+            u'hometown_p': 2,
+            u'hometown_c': 2,
+            u'residence_p': 2,
+            u'residence_c': 2,
+            u'sitesetID': 3,
+            u'positionType': 3,
         }
 
     idx_to_ohe = [i for i, j in enumerate(columns) if j not in not_ohe]
     encoder = OneHotEncoder(categorical_features=idx_to_ohe)
-    encoder.fit(np.concatenate([train_x, test_x], axis=0))
+    if df_concate is not None:
+        df_concate.fillna(0, inplace=True)
+        np_concate = df_concate.values
+    else:
+        np_concate = np.concatenate([train_x, test_x], axis=0)
+
+    print np_concate.shape
+    encoder.fit(np_concate)
 
     train_x = encoder.transform(train_x)
     print train_x.shape, type(train_x), train_y.shape, type(train_y)
@@ -147,10 +155,17 @@ def get_tf_feature(gen_ffm=False):
             with open(filename, 'w') as f:
                 for i in range(data.shape[0]):
                     row_indice = data.getrow(i).nonzero()
-                    row_values = data.getrow(i)[row_indice]
-                    row_field = [dict_column2field[c]
-                                 for c in columns_labels[row_indice[1]]]
-                    line = ['{}:{}:{}'.format(row_field[i], row_indice[1][i], row_values[i]) for i in range(len(row_field))]
+                    row_values = np.squeeze(data[row_indice])
+                    row_field = np.asarray([
+                        dict_column2field[c]
+                        for c in columns_labels[row_indice[1]]
+                    ])
+                    print row_indice[1].shape, row_values.shape, row_field.shape
+                    line = [
+                        '{}:{}:{}'.format(row_field[i], row_indice[1][i],
+                                          row_values[i])
+                        for i in range(len(row_field))
+                    ]
                     if not pre:
                         line = [str(train_y[i])] + line
                     else:
@@ -184,4 +199,4 @@ def load_feature(from_file=True):
 if __name__ == '__main__':
     # df = get_feature(False)
     # print df.head(5)
-    get_tf_feature(True)
+    get_tf_feature(gen_ffm=True)
