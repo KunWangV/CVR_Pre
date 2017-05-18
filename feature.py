@@ -66,9 +66,15 @@ def get_feature(for_train=True):
     # 该app被安装的数量
 
     ## context
+    df_result['clickTime_day'] = df_result['clickTime'].astype(str).str.slice(
+        0, 2)
+    df_result['clickTime_hour'] = df_result['clickTime'].astype(str).str.slice(
+        2, 4)
+    df_result['clickTime_minute'] = df_result['clickTime'].astype(
+        str).str.slice(4, 6)
 
     ## remove unrelated
-    to_drop = ['clickTime', 'creativeID', 'userID', 'positionID', 'appID']
+    to_drop += ['clickTime', 'creativeID', 'userID', 'positionID', 'appID']
 
     if for_train:
         to_drop += ['conversionTime']
@@ -77,33 +83,78 @@ def get_feature(for_train=True):
     return df_result, not_ohe
 
 
-def get_tf_feature():
+def get_tf_feature(gen_ffm=False):
     df_train, not_ohe = get_feature(True)
     shuffle(df_train)
     train_y = np.round(df_train['label']).astype(int).values
     df_train.drop('label', 1, inplace=True)
+    print df_train.columns
     train_x = df_train.values
     columns = df_train.columns
-    idx_to_ohe = [i for i, j in enumerate(columns) if j not in not_ohe]
-    encoder = OneHotEncoder(categorical_features=idx_to_ohe)
-    encoder.fit(train_x)
-    train_x = encoder.transform(train_x)
-    print train_x.shape, type(train_x), train_y.shape, type(train_y)
-    pickle.dump(train_x, open('train_x.pkl', 'wb'), 2)
-    pickle.dump(train_y, open('train_y.pkl', 'wb'), 2)
 
     df_test, not_ohe = get_feature(False)
     inst_id = df_test['instanceID'].values
     df_test.drop(['label', 'instanceID'], axis=1, inplace=True)
     test_x = df_test.values
-    columns = df_test.columns
+
+    if gen_ffm:
+        df_concate = pd.concat([df_train, df_test])
+        list_count = [(c,df_concate[c].unique.size()[0]} for f in df_concate.columns]
+        dict_column2field = [
+            u'connectionType',: 0
+            u'telecomsOperator',: 0
+            u'clickTime_day',: 0
+            u'clickTime_minute',: 0
+            u'clickTime_hour',: 0
+            u'appPlatform',: 1
+            u'appCategory',: 1
+            u'age',: 2
+            u'gender',: 2
+            u'education',: 2
+            u'marriageStatus',: 2
+            u'haveBaby',: 2
+            u'hometown',: 2
+            u'residence',: 2
+            u'hometown_p',: 2
+            u'hometown_c',: 2
+            u'residence_p',: 2
+            u'residence_c',: 2
+            u'sitesetID',: 3
+            u'positionType',: 3
+        ]
+
+
+    idx_to_ohe = [i for i, j in enumerate(columns) if j not in not_ohe]
+    encoder = OneHotEncoder(categorical_features=idx_to_ohe)
+    encoder.fit(np.concatenate([train_x, test_x], axis=0))
+
+    train_x = encoder.transform(train_x)
+    print train_x.shape, type(train_x), train_y.shape, type(train_y)
+    pickle.dump(train_x, open('train_x.pkl', 'wb'), 2)
+    pickle.dump(train_y, open('train_y.pkl', 'wb'), 2)
+
     test_x = encoder.transform(test_x)
-    print test_x.shape
     pickle.dump(test_x, open('test_x.pkl', 'wb'), 2)
     pickle.dump(inst_id, open('inst_id.pkl', 'wb'), 2)
 
+
+    if gen_ffm:
+        columns_labels = []
+        for label, count in list_count:
+            columns_labels+=[label]*count
+        
+        columns_labels=np.asarray(columns_labels)
+        
+        with open('ffm.train') as f:
+            for i in range(train_x.shape[0]):
+                row_indice = train_x.getrow(i).nonzero()
+                row_values = trian_x.getrow(i)[row_indice]
+                row_field = [dict_column2field[c] for c in columns_labels[row_indice[1]]]
+
     return train_x, train_y, test_x, inst_id
 
+def to_ffm():
+    pass
 
 def load_feature(from_file=True):
     """
