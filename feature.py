@@ -14,6 +14,8 @@ from data import *
 import pdb
 import pickle
 
+from tqdm import tqdm
+
 
 def get_feature(for_train=True):
     """
@@ -153,18 +155,17 @@ def get_tf_feature(gen_ffm=False):
 
         def to_fm(filename, data, pre=False):
             with open(filename, 'w') as f:
-                for i in range(data.shape[0]):
+                for i in tqdm(range(data.shape[0])):
                     row_indice = data.getrow(i).nonzero()
                     row_values = data[row_indice]
-                    row_values = np.squeeze(row_values, axis=0)
                     row_field = np.asarray([
                         dict_column2field[c]
                         for c in columns_labels[row_indice[1]]
                     ])
-                    print row_indice[1].shape, row_values.shape, row_field.shape
+                    # print row_indice[1].shape, row_values.shape, row_field.shape
                     line = [
                         '{}:{}:{}'.format(row_field[i], row_indice[1][i],
-                                          row_values[i])
+                                          1)
                         for i in range(len(row_field))
                     ]
                     if not pre:
@@ -175,6 +176,7 @@ def get_tf_feature(gen_ffm=False):
 
                 f.write('\n')
 
+        print train_x.shape, test_x.shape
         to_fm('train_x.ffm', train_x)
         to_fm('test_x.ffm', test_x, True)
 
