@@ -40,13 +40,13 @@ def get_feature(for_train=True):
     # user realated
     df_user = read_as_pandas(FILE_USER)
     df_user['age'] = np.round(df_user['age'] / 10).astype(int)  # 年龄段
-    df_user['hometown_p'] = np.round(df_user['hometown'] / 100).astype(
+    df_user['hometown_p'] = np.round(df_user['hometown'].astype(int) / 100).astype(
         int)  # 取省份
-    df_user['hometown_c'] = np.round(df_user['hometown'] % 100).astype(
+    df_user['hometown_c'] = np.round(df_user['hometown'].astype(int) % 100).astype(
         int)  # 城市
-    df_user['residence_p'] = np.round(df_user['residence'] / 100).astype(
+    df_user['residence_p'] = np.round(df_user['residence'].astype(int) / 100).astype(
         int)  # 取省份
-    df_user['residence_c'] = np.round(df_user['residence'] % 100).astype(
+    df_user['residence_c'] = np.round(df_user['residence'].astype(int) % 100).astype(
         int)  # 城市
     df_result = pd.merge(df_result, df_user, how='left', on='userID')
 
@@ -85,7 +85,7 @@ def get_feature(for_train=True):
     return df_result, not_ohe
 
 
-def get_tf_feature(gen_ffm=False):
+def get_tf_feature(gen_ffm=False, with_ohe=True, save=True):
     df_train, not_ohe = get_feature(True)
     shuffle(df_train)
     train_y = np.round(df_train['label']).astype(int).values
@@ -126,25 +126,28 @@ def get_tf_feature(gen_ffm=False):
             u'positionType': 3,
         }
 
-    idx_to_ohe = [i for i, j in enumerate(columns) if j not in not_ohe]
-    encoder = OneHotEncoder(categorical_features=idx_to_ohe)
-    if df_concate is not None:
-        df_concate.fillna(0, inplace=True)
-        np_concate = df_concate.values
-    else:
-        np_concate = np.concatenate([train_x, test_x], axis=0)
+    if with_ohe:
+        idx_to_ohe = [i for i, j in enumerate(columns) if j not in not_ohe]
+        encoder = OneHotEncoder(categorical_features=idx_to_ohe)
+        if df_concate is not None:
+            df_concate.fillna(0, inplace=True)
+            np_concate = df_concate.values
+        else:
+            np_concate = np.concatenate([train_x, test_x], axis=0)
 
-    print np_concate.shape
-    encoder.fit(np_concate)
+        print np_concate.shape
+        encoder.fit(np_concate)
 
-    train_x = encoder.transform(train_x)
+        train_x = encoder.transform(train_x)
+        test_x = encoder.transform(test_x)
+
     print train_x.shape, type(train_x), train_y.shape, type(train_y)
-    pickle.dump(train_x, open('train_x.pkl', 'wb'), 2)
-    pickle.dump(train_y, open('train_y.pkl', 'wb'), 2)
+    if save:
+        pickle.dump(train_x, open('train_x.pkl', 'wb'), 2)
+        pickle.dump(train_y, open('train_y.pkl', 'wb'), 2)
 
-    test_x = encoder.transform(test_x)
-    pickle.dump(test_x, open('test_x.pkl', 'wb'), 2)
-    pickle.dump(inst_id, open('inst_id.pkl', 'wb'), 2)
+        pickle.dump(test_x, open('test_x.pkl', 'wb'), 2)
+        pickle.dump(inst_id, open('inst_id.pkl', 'wb'), 2)
 
     if gen_ffm:
         columns_labels = []
@@ -187,7 +190,7 @@ def to_ffm():
     pass
 
 
-def load_feature(from_file=True):
+def load_feature(from_file=True, with_ohe=True):
     """
     从文件加载或者。。。
     """
@@ -196,7 +199,7 @@ def load_feature(from_file=True):
         objs = [pickle.load(open(f, 'rb')) for f in filenames]
         return objs
     else:
-        return get_tf_feature()
+        return get_tf_feature(with_ohe=with_ohe)
 
 
 if __name__ == '__main__':

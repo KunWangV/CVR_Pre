@@ -77,8 +77,10 @@ def NN(X, y):
 
 
 def main():
-    train_x, train_y, test_x, inst = load_feature(from_file=True)
-    RF(train_x, train_y, test_x)
+    train_x, train_y, test_x, inst = load_feature(
+        from_file=False, with_ohe=False)
+    prob, _ = RF(train_x, train_y, test_x)
+    pickle.dump(open('prob.pkl', 'wb'), prob)
 
 
 if __name__ == '__main__':
