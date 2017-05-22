@@ -132,7 +132,7 @@ def XGB(x, y, pre_x):
     return pre_y
 
 
-def NN(X, y):
+def deep_and_wide(X, y):
     pass
 
 def save_pred(ypre, inst):

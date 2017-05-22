@@ -4,6 +4,7 @@
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.utils import shuffle
+from sklearn.model_selection import train_test_split
 
 import pandas as pd
 from pyspark.ml.feature import OneHotEncoder as OHE
@@ -92,7 +93,7 @@ def get_feature(for_train=True):
 
     # 最近是否安装了该应用或者同类应用
 
-    # 该app被安装的数量
+    # 最近该app被安装的数量
 
     # context
     df_result['clickTime_day'] = df_result['clickTime'].astype(str).str.slice(0, 2)
@@ -166,6 +167,21 @@ def load_feature(from_file=True, with_ohe=True):
         return objs
     else:
         return get_tf_feature(with_ohe=with_ohe)
+
+
+def split_train_test(x, y, test_size=0.2, stratify=True):
+    """
+    分割数据
+    :param x:
+    :param y:
+    :param test_size:
+    :param stratify: 考虑不平衡问题
+    :return:
+    """
+    if stratify:
+        return train_test_split(x, y, test_size=test_size)
+    else:
+        return train_test_split(x, y, test_size=test_size, stratify=y)
 
 
 if __name__ == '__main__':
