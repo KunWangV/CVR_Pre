@@ -1,7 +1,7 @@
 # coding: utf-8
 # pylint: disable=C0103, C0111,C0326
 import scipy as sp
-import lightgbm as lgb
+# import lightgbm as lgb
 import pandas as pd
 import numpy as np
 import xgboost as xgb
@@ -13,6 +13,7 @@ from sklearn.model_selection import train_test_split
 
 from data import *
 from feature import *
+import os
 
 submit_flag=True
 
@@ -28,8 +29,9 @@ def logloss(act, pred):
 
 
 def feature_select(x, y, pre_x, rate=0.2):
-    RF(x, y, pre_x)
-    df = pd.read_csv('importance.csv')
+    if not os.path.exists('importances.csv'):
+        RF(x, y, pre_x)
+    df = pd.read_csv('importances.csv')
     importances = df.imp
     indices = np.argsort(importances)[::-1]
     n = int(len(indices) * rate)
@@ -138,7 +140,7 @@ def save_pred(ypre, inst):
     df.to_csv('submission.csv', index=False)
 
 if __name__ == '__main__':
-    x, y, xpre, inst = load_feature(from_file=False, with_ohe=False)
+    x, y, xpre, inst = load_feature(from_file=True, with_ohe=False)
     # xgboost
     ypre = XGB(x, y, xpre)
     save_pred(ypre, inst)
