@@ -78,7 +78,7 @@ def RF(x, y, pred_x):
 
 def XGB(x, y, pre_x):
     print '----xgb-----'
-    x, pre_x = feature_select(x, y, pre_x, rate=0.1)
+    x, pre_x = feature_select(x, y, pre_x, rate=0.3)
     print x.shape
     print pre_x.shape
 
@@ -133,15 +133,14 @@ def XGB(x, y, pre_x):
 def NN(X, y):
     pass
 
+def save_pred(ypre, inst):
+    df = pd.concat([ypre, inst], axis=0)
+    df.to_csv('submission.csv', index=False)
 
 if __name__ == '__main__':
     x, y, xpre, inst = load_feature(from_file=False, with_ohe=False)
     # xgboost
     ypre = XGB(x, y, xpre)
-
+    save_pred(ypre, inst)
     # random forest
     # ypre = rfpredict(x, y, xpre)
-
-
-if __name__ == '__main__':
-    main()
