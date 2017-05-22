@@ -1,5 +1,5 @@
 # coding: utf-8
-# pylint: disable=C0103, C0111
+# pylint: disable=C0103, C0111,C0326
 import scipy as sp
 import lightgbm as lgb
 import pandas as pd
@@ -14,6 +14,7 @@ from sklearn.cross_validation import train_test_split
 from data import *
 from feature import *
 
+submit_flag=True
 
 def logloss(act, pred):
     epsilon = 1e-15
@@ -26,8 +27,15 @@ def logloss(act, pred):
     return ll
 
 
-def LGB(X, y, pred_x):
-    pass
+def feature_select(x, y, pre_x, rate=0.2):
+    RF(x, y, pre_x)
+    df = pd.read_csv('importance.csv')
+    importances = df.imp
+    indices = np.argsort(importances)[::-1]
+    n = int(len(indices) * rate)
+    x = x[:, indices[0:n]]
+    pre_x = pre_x[:, indices[0:n]]
+    return x,  pre_x
 
 
 def RF(x, y, pred_x):
@@ -69,18 +77,70 @@ def RF(x, y, pred_x):
 
 
 def XGB(X, y, pred_x):
-    pass
+    print '----xgb-----'
+    x, pre_x = feature_select(x, y, pre_x, rate=0.1)
+    print x.shape
+    print pre_x.shape
+
+    posnum = y[y == 1].shape[0]
+    negnum = y[y == 0].shape[0]
+    print 'pos:', posnum, ' neg:', negnum
+
+    weight = float(posnum) / (posnum + negnum)
+    print 'weight:', weight
+
+    xtrain, xvalid, ytrain, yvalid = train_test_split(
+        x, y, test_size=0.2, random_state=0)
+
+    if not submit_flag:
+        xtrain, xtest, ytrain, ytest = train_test_split(
+            xtrain, ytrain, test_size=0.2, random_state=0)
+        dtest = xgb.DMatrix(xtest, label=ytest, missing=-1)
+
+    dtrain = xgb.DMatrix(xtrain, label=ytrain, missing=-1)
+    dvalid = xgb.DMatrix(xvalid, label=yvalid, missing=-1)
+
+    dpre = xgb.DMatrix(pre_x)
+
+    param = {
+        'booster': 'gbtree',
+        'objective': 'binary:logistic',
+        'early_stopping_rounds': 100,
+        'eval_metric': 'logloss',
+        'max_depth': 6,
+        'silent': 1,
+        'eta': 0.05,
+        'nthread': 16,
+        'scale_pos_weight': weight
+    }
+    watchlist = [(dtrain, 'train'), (dvalid, 'val')]
+    model = xgb.train(param, dtrain, num_boost_round=500, evals=watchlist)
+
+    # valid
+    valid_pre = model.predict(dvalid, ntree_limit=model.best_iteration)
+    logloss(yvalid, valid_pre)
+
+    if not submit_flag:
+        test_pre = model.predict(dtest, ntree_limit=model.best_iteration)
+        logloss(ytest, test_pre)
+
+    # predict
+    pre_y = model.predict(dpre, ntree_limit=model.best_iteration)
+
+    return pre_y
 
 
 def NN(X, y):
     pass
 
 
-def main():
-    train_x, train_y, test_x, inst = load_feature(
-        from_file=False, with_ohe=False)
-    prob, _ = RF(train_x, train_y, test_x)
-    pickle.dump(open('prob.pkl', 'wb'), prob)
+if __name__ == '__main__':
+    x, y, xpre, inst = load_feature(from_file=False, with_ohe=False)
+    # xgboost
+    ypre = XGB(x, y, xpre)
+
+    # random forest
+    # ypre = rfpredict(x, y, xpre)
 
 
 if __name__ == '__main__':

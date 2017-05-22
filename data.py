@@ -12,7 +12,7 @@ FILE_TEST = r'../test.csv'
 FILE_TRAIN = r'../train.csv'
 FILE_USER_APP_ACTIONS = r'../user_app_actions.csv'
 FILE_USER = r'../user.csv'
-FILE_USER_INSTALLEDAPPS = r'../user_installedapps.sm.csv'
+FILE_USER_INSTALLEDAPPS = r'../user_installedapps.csv'
 
 # sess = SparkSession.builder.appName('tencent') \
 #     .config('spark.executor.memory', '1024m') \
