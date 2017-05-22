@@ -9,7 +9,7 @@ import xgboost as xgb
 from sklearn.utils import shuffle
 from sklearn import grid_search
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingRegressor
-from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import train_test_split
 
 from data import *
 from feature import *
@@ -76,7 +76,7 @@ def RF(x, y, pred_x):
     return pred[:, 1], indices
 
 
-def XGB(X, y, pred_x):
+def XGB(x, y, pre_x):
     print '----xgb-----'
     x, pre_x = feature_select(x, y, pre_x, rate=0.1)
     print x.shape
@@ -90,7 +90,7 @@ def XGB(X, y, pred_x):
     print 'weight:', weight
 
     xtrain, xvalid, ytrain, yvalid = train_test_split(
-        x, y, test_size=0.2, random_state=0)
+        x, y, test_size=0.2, random_state=0, stratify=y)
 
     if not submit_flag:
         xtrain, xtest, ytrain, ytest = train_test_split(
