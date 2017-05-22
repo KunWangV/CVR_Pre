@@ -80,7 +80,7 @@ def RF(x, y, pred_x):
 
 def XGB(x, y, pre_x):
     print '----xgb-----'
-    x, pre_x = feature_select(x, y, pre_x, rate=0.3)
+    x, pre_x = feature_select(x, y, pre_x, rate=0.2)
     print x.shape
     print pre_x.shape
 
@@ -116,7 +116,7 @@ def XGB(x, y, pre_x):
         'scale_pos_weight': weight
     }
     watchlist = [(dtrain, 'train'), (dvalid, 'val')]
-    model = xgb.train(param, dtrain, num_boost_round=500, evals=watchlist)
+    model = xgb.train(param, dtrain, num_boost_round=100, evals=watchlist)
 
     # valid
     valid_pre = model.predict(dvalid, ntree_limit=model.best_iteration)
@@ -136,7 +136,7 @@ def deep_and_wide(X, y):
     pass
 
 def save_pred(ypre, inst):
-    df = pd.concat([ypre, inst], axis=0)
+    df = pd.DataFrame({'instanceID':inst, 'prob':ypre})
     df.to_csv('submission.csv', index=False)
 
 if __name__ == '__main__':
