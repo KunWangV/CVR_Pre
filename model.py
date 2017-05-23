@@ -34,6 +34,8 @@ def feature_select(x, y, pre_x, rate=0.2):
     df = pd.read_csv('importances.csv')
     importances = df.imp
     indices = np.argsort(importances)[::-1]
+    print 'select indices: '
+    print indices
     n = int(len(indices) * rate)
     x = x[:, indices[0:n]]
     pre_x = pre_x[:, indices[0:n]]
@@ -80,7 +82,7 @@ def RF(x, y, pred_x):
 
 def XGB(x, y, pre_x):
     print '----xgb-----'
-    x, pre_x = feature_select(x, y, pre_x, rate=0.2)
+    x, pre_x = feature_select(x, y, pre_x, rate=0.8)
     print x.shape
     print pre_x.shape
 
@@ -116,7 +118,7 @@ def XGB(x, y, pre_x):
         'scale_pos_weight': weight
     }
     watchlist = [(dtrain, 'train'), (dvalid, 'val')]
-    model = xgb.train(param, dtrain, num_boost_round=100, evals=watchlist)
+    model = xgb.train(param, dtrain, num_boost_round=200, evals=watchlist)
 
     # valid
     valid_pre = model.predict(dvalid, ntree_limit=model.best_iteration)
@@ -140,7 +142,7 @@ def save_pred(ypre, inst):
     df.to_csv('submission.csv', index=False)
 
 if __name__ == '__main__':
-    x, y, xpre, inst = load_feature(from_file=True, with_ohe=False)
+    x, y, xpre, inst = load_feature(from_file=False, with_ohe=False)
     # xgboost
     ypre = XGB(x, y, xpre)
     save_pred(ypre, inst)

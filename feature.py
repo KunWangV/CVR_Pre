@@ -105,7 +105,7 @@ def get_feature(for_train=True):
     df_result['clickTime_minute'] = df_result['clickTime_minute'].astype(int)
 
     # remove unrelated
-    to_drop += ['clickTime']  # appID也作为特征，应为很少
+    to_drop += ['clickTime',]  # appID也作为特征，应为很少
 
     if for_train:
         to_drop += ['conversionTime']
