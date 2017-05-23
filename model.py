@@ -1,7 +1,7 @@
 # coding: utf-8
 # pylint: disable=C0103, C0111,C0326
 import scipy as sp
-import lightgbm as lgb
+# import lightgbm as lgb
 import pandas as pd
 import numpy as np
 import xgboost as xgb
@@ -10,12 +10,18 @@ import time
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
 from sklearn import grid_search
+<<<<<<< HEAD
 from sklearn.ensemble import RandomForestClassifier,RandomForestRegressor, GradientBoostingRegressor
 from sklearn.cross_validation import train_test_split
 from sklearn.linear_model import LogisticRegression
+=======
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingRegressor
+from sklearn.model_selection import train_test_split
+>>>>>>> cf7614174911050901aae414c1a33f6bf3eaddcf
 
 from data import *
 from feature import *
+import os
 
 submit_flag = True
 
@@ -32,10 +38,17 @@ def logloss(act, pred):
 
 
 def feature_select(x, y, pre_x, rate=0.2):
+<<<<<<< HEAD
     # RF(x, y, pre_x)
+=======
+    if not os.path.exists('importances.csv'):
+        RF(x, y, pre_x)
+>>>>>>> cf7614174911050901aae414c1a33f6bf3eaddcf
     df = pd.read_csv('importances.csv')
     importances = df.imp
     indices = np.argsort(importances)[::-1]
+    print 'select indices: '
+    print indices
     n = int(len(indices) * rate)
     x = x[:, indices[0:n]]
     pre_x = pre_x[:, indices[0:n]]
@@ -96,10 +109,14 @@ def RF(x, y, pred_x):
     return pred[:, 1], indices
 
 
-def XGB(X, y, pred_x):
+def XGB(x, y, pre_x):
     print '----xgb-----'
+<<<<<<< HEAD
     p_x = pre_x
     x, pre_x = feature_select(x, y, p_x, rate=0.1)
+=======
+    x, pre_x = feature_select(x, y, pre_x, rate=0.8)
+>>>>>>> cf7614174911050901aae414c1a33f6bf3eaddcf
     print x.shape
     print pre_x.shape
 
@@ -111,7 +128,7 @@ def XGB(X, y, pred_x):
     print 'weight:', weight
 
     xtrain, xvalid, ytrain, yvalid = train_test_split(
-        x, y, test_size=0.2, random_state=0)
+        x, y, test_size=0.2, random_state=0, stratify=y)
 
     if not submit_flag:
         xtrain, xtest, ytrain, ytest = train_test_split(
@@ -134,7 +151,7 @@ def XGB(X, y, pred_x):
         'scale_pos_weight': weight
     }
     watchlist = [(dtrain, 'train'), (dvalid, 'val')]
-    model = xgb.train(param, dtrain, num_boost_round=500, evals=watchlist)
+    model = xgb.train(param, dtrain, num_boost_round=200, evals=watchlist)
 
     # valid
     valid_pre = model.predict(dvalid, ntree_limit=model.best_iteration)
@@ -150,9 +167,12 @@ def XGB(X, y, pred_x):
     return pre_y
 
 
-def NN(X, y):
+def deep_and_wide(X, y):
     pass
 
+def save_pred(ypre, inst):
+    df = pd.DataFrame({'instanceID':inst, 'prob':ypre})
+    df.to_csv('submission.csv', index=False)
 
 def LR(x, y, pre_x):
     print '----LR-----'
@@ -282,13 +302,16 @@ def LGB(x, y, pre_x):
 
     return y_pre
 
+def save_pred(ypre, inst):
+    df = pd.DataFrame({'instanceID':inst, 'prob':ypre})
+    df.to_csv('submission.csv', index=False)
 
 if __name__ == '__main__':
     x, y, xpre, inst = load_feature(from_file=True, with_ohe=False)
     # xgboost
     ypre = LGB(x, y, xpre)
-    if submit_flag:
-        submit(ypre, inst)
+    save_pred(ypre, inst)
+    # ypre = XGB(x, y, xpre)
 
     # random forest
     # ypre = rfpredict(x, y, xpre)
