@@ -81,7 +81,7 @@ def RF(x, y, pred_x):
     print 'weight:', weight
 
     xtrain, xvalid, ytrain, yvalid = train_test_split(
-        x, y, test_size=0.2, random_state=0)
+        x, y, test_size=0.2, random_state=0,stratify=y)
 
     clf = RandomForestClassifier(n_estimators=500,
                                  max_depth=6,
@@ -124,7 +124,7 @@ def XGB(x, y, pre_x):
 
     if not submit_flag:
         xtrain, xtest, ytrain, ytest = train_test_split(
-            xtrain, ytrain, test_size=0.2, random_state=0)
+            xtrain, ytrain, test_size=0.2, random_state=0,stratify=y)
         dtest = xgb.DMatrix(xtest, label=ytest, missing=-1)
 
     dtrain = xgb.DMatrix(xtrain, label=ytrain, missing=-1)
@@ -182,11 +182,11 @@ def LR(x, y, pre_x):
     print 'weight:', weight
 
     xtrain, xvalid, ytrain, yvalid = train_test_split(
-        x, y, test_size=0.2, random_state=0)
+        x, y, test_size=0.2, random_state=0,stratify=y)
 
     if not submit_flag:
         xtrain, xtest, ytrain, ytest = train_test_split(
-            xtrain, ytrain, test_size=0.2, random_state=0)
+            xtrain, ytrain, test_size=0.2, random_state=0,stratify=y)
         dtest = xgb.DMatrix(xtest, label=ytest, missing=-1)
 
     sc = StandardScaler()
@@ -226,11 +226,11 @@ def LGB(x, y, pre_x):
     print 'weight:', weight
 
     xtrain, xvalid, ytrain, yvalid = train_test_split(
-        x, y, test_size=0.2, random_state=0)
+        x, y, test_size=0.2, random_state=0,stratify=y)
 
     if not submit_flag:
         xtrain, xtest, ytrain, ytest = train_test_split(
-            xtrain, ytrain, test_size=0.2, random_state=0)
+            xtrain, ytrain, test_size=0.2, random_state=0,stratify=y)
 
     lgb_train = lgb.Dataset(xtrain, ytrain)
     lgb_eval = lgb.Dataset(xvalid, yvalid, reference=lgb_train)
