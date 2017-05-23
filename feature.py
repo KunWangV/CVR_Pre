@@ -21,6 +21,49 @@ from tqdm import tqdm
 def get_feature(for_train=True):
     """
     提取相关特征
+
+    u'label':
+    : id类
+    u'instanceID'
+    u'creativeID'
+    u'userID'
+    u'positionID',
+    u'adID'
+    u'camgaignID',
+    u'advertiserID'
+    u'appID'
+
+    : category 类
+    u'connectionType'
+    u'telecomsOperator'
+    u'appPlatform'
+    u'appCategory'
+    u'age',
+    u'gender'
+    u'education'
+    u'marriageStatus'
+    u'haveBaby'
+    u'hometown_p',
+    u'hometown_c'
+    u'residence_p'
+    u'residence_c'
+    u'sitesetID',
+    u'positionType'
+
+    : 连续值类
+    u'inst_cnt_appcate'
+    u'inst_cnt_installed',
+    u'inst_cate_percent'
+    u'inst_is_installed'
+    u'inst_app_installed',
+    u'action_installed'
+    u'action_cate'
+    u'action_cate_recent',
+    u'tt_is_installed'
+    u'tt_cnt_appcate'
+    u'clickTime_day',
+    u'clickTime_hour'
+    u'clickTime_minute'
     """
     if for_train:
         df_file = read_as_pandas(FILE_TRAIN)
@@ -59,41 +102,69 @@ def get_feature(for_train=True):
     # 用户已安装列表是否存在该应用、同类应用的数量、所占比例、该用户已经安装app的数量
     df_installed = read_as_pandas(FILE_USER_INSTALLEDAPPS)
     df_group_cnt = df_installed.groupby('userID').count().rename(
-        columns={'appID': 'cnt_installed'}).reset_index()  # 每个用户安装的软件总量
+        columns={'appID': 'inst_cnt_installed'}).reset_index()
     df_installed_cate = pd.merge(df_installed, df_app_category, how='left', on='appID')
     df_group_cnt_user_appcate = df_installed_cate.groupby(['userID', 'appCategory']).count().reset_index().rename(
-        columns={'appID': 'cnt_appcate'})
+        columns={'appID': 'inst_cnt_appcate'})
     df_percent = pd.merge(df_group_cnt_user_appcate, df_group_cnt, how='left',
-                          on='userID')  # userID, appCategory, cnt_installed, cnt_appcate
-    df_percent['cate_percent'] = df_percent['cnt_appcate'].astype(float) / df_percent['cnt_installed']  # cate_percent
+                          on='userID')  # userID, appCategory, inst_cnt_installed, inst_cnt_appcate
+    df_percent.fillna(0, inplace=True)
+    df_percent['inst_cate_percent'] = df_percent['inst_cnt_appcate'].astype(float) / df_percent[
+        'inst_cnt_installed']  # inst_cate_percent
     df_result = pd.merge(df_result, df_percent, how='left',
-                         on=['userID', 'appCategory'])  # + 同类应用的数量、所占比例、该用户已经安装app的数量
-    df_result = df_result.fillna(0)  ## 没有安装过同类应用，则设置为0
+                         on=['userID', 'appCategory'])
+    df_result['inst_cate_percent'].fillna(0, inplace=True)  # 同类应用比例
+    df_result['inst_cnt_installed'].fillna(0, inplace=True)
+
+    df_installed['count'] = np.ones(df_installed.shape[0])
     df_group_exist = df_installed.groupby(['userID', 'appID']).count().rename(
-        columns={'count': 'is_installed'}).reset_index()
-    df_group_exist['is_installed'] = 1
-    df_result = pd.merge(df_result, df_group_exist, how='left', on=['userID', 'appID'])  # + 否存在该应用
-    df_result['is_installed'].fillna(0, inplace=True)  # 1表示已經安裝，0表示沒有安裝
+        columns={'count': 'inst_is_installed'}).reset_index()
+    df_result = pd.merge(df_result, df_group_exist, how='left', on=['userID', 'appID'])
+    df_result['inst_is_installed'].fillna(0, inplace=True)
+    del df_installed['count']
 
     df_group_app = df_installed.groupby('appID').count().rename(
-        columns={'userID': 'app_installed'}).reset_index()  # app被安装的次数
+        columns={'userID': 'inst_app_installed'}).reset_index()
     df_result = pd.merge(df_result, df_group_app, on='appID', how='left')
-    df_result['app_installed'].fillna(0, inplace=True)
+    df_result['inst_app_installed'].fillna(0, inplace=True)
+
+    df_result['inst_cnt_installed'] = df_result['inst_cnt_installed'].astype(int)  # 用戶已經安裝的app個數
+    df_result['inst_is_installed'] = df_result['inst_is_installed'].astype(int)  # 該app被安裝的次数
+    df_result['inst_cnt_appcate'] = df_result['inst_cnt_appcate'].fillna(0).astype(int)  # 同类应用个数
+    df_result['inst_app_installed'] = df_result['inst_app_installed'].astype(int)  # 该app被安装的次数
 
     # 安裝流水中是否存在该应用
     df_actions = read_as_pandas(FILE_USER_APP_ACTIONS)
     df_result['index'] = df_result.index
-    df_merged = pd.merge(df_result, df_actions, on=['userID', 'appID'], how='left')
-    df_merged['action_before'] = df_merged['clickTime'] > df_merged['installTime']
-    df_merged['action_before'] = df_merged['action_before'].astype(int)
-    df_sum = pd.DataFrame(df_merged.loc[:, ['index', 'action_before']]).groupby(['index']).sum().reset_index()
-    df_result['action_installed'] = df_sum['action_before']  ## feautre 安装流水中clickTime之前安装该app的次数
-    df_result.drop(['index'], axis=1, inplace=True)
+    df_merge = pd.merge(df_actions, df_app_category, how='left', on='appID').rename(
+        columns={'appID': 'action_appID', 'appCategory': 'action_appCategory'})
+    df_merged = pd.merge(df_result, df_merge, on=['userID'], how='left')
+    df_merged['action_installed'] = (df_merged['clickTime'] > df_merged['installTime']) \
+                                    & (df_merged['action_appID'] == df_merged['appID'])
+
+    df_merged['action_cate'] = (df_merged['clickTime'] > df_merged['installTime']) \
+                               & (df_merged['appCategory'] == df_merged['action_appCategory'])
+
+    df_merged['action_cate_recent'] = (df_merged['clickTime'] > df_merged['installTime']) \
+                                      & (df_merged['clickTime'] - df_merged['installTime'] < 10000) \
+                                      & (df_merged['appCategory'] == df_merged['action_appCategory'])  # 最近两天同类
+
+    df_merged['action_installed'] = df_merged['action_installed'].astype(int)
+    df_merged['action_cate'] = df_merged['action_cate'].astype(int)
+    df_merged['action_cate_recent'] = df_merged['action_cate_recent'].astype(int)
+    df_sum = pd.DataFrame(df_merged.loc[:, ['index', 'action_installed', 'action_cate', 'action_cate_recent']]) \
+        .groupby(['index']).sum().reset_index()
+
+    df_result['action_installed'] = df_sum['action_installed'].fillna(0)  # 用户安装该app的次数
+    df_result['action_cate'] = df_sum['action_cate'].fillna(0)  # 用户安装该类别的次数
+    df_result['action_cate_recent'] = df_sum['action_cate_recent'].fillna(0)  # 用户最近两天安装该类别app的次数
+
     # 修正已安装数据
+    df_result['tt_is_installed'] = (df_result['inst_is_installed'] > 0) \
+                                   & (df_result['action_installed'] > 0)  # clickTime之前是否已经安装过
 
-    # 最近是否安装了该应用或者同类应用
-
-    # 最近该app被安装的数量
+    df_result['tt_is_installed'] = df_result['tt_is_installed'].astype(int)
+    df_result['tt_cnt_appcate'] = df_result['action_cate'] + df_result['inst_cnt_appcate']  # clickTime之前该app同类应用安装次数
 
     # context
     df_result['clickTime_day'] = df_result['clickTime'].astype(str).str.slice(0, 2)
@@ -103,9 +174,10 @@ def get_feature(for_train=True):
     df_result['clickTime_day'] = df_result['clickTime_day'].astype(int)
     df_result['clickTime_hour'] = df_result['clickTime_hour'].astype(int)
     df_result['clickTime_minute'] = df_result['clickTime_minute'].astype(int)
+    df_result['clickTime_week'] = df_result['clickTime'] / 10000 % 7
 
     # remove unrelated
-    to_drop += ['clickTime',]  # appID也作为特征，应为很少
+    to_drop += ['clickTime', 'index']
 
     if for_train:
         to_drop += ['conversionTime']
