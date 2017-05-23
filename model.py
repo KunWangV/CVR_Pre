@@ -107,7 +107,7 @@ def RF(x, y, pred_x):
 def XGB(x, y, pre_x):
     print '----xgb-----'
     p_x = pre_x
-    x, pre_x = feature_select(x, y, p_x, rate=0.1)
+    # x, pre_x = feature_select(x, y, p_x, rate=0.1)
     x, pre_x = feature_select(x, y, pre_x, rate=0.8)
     print x.shape
     print pre_x.shape
@@ -143,9 +143,10 @@ def XGB(x, y, pre_x):
         'scale_pos_weight': weight
     }
     watchlist = [(dtrain, 'train'), (dvalid, 'val')]
-    model = xgb.train(param, dtrain, num_boost_round=200, evals=watchlist)
+    model = xgb.train(param, dtrain, num_boost_round=60, evals=watchlist)
 
     # valid
+    print model.best_iteration
     valid_pre = model.predict(dvalid, ntree_limit=model.best_iteration)
     logloss(yvalid, valid_pre)
 
@@ -194,7 +195,7 @@ def LR(x, y, pre_x):
     # 注意：这里我们要用同样的参数来标准化测试集，使得测试集和训练集之间有可比性
     X_valid_std = sc.transform(xvalid)
 
-    model = LogisticRegression()
+    model = LogisticRegression(C=50.0, random_state=0)
     model.fit(X_train_std, ytrain)
 
     # valid
@@ -301,7 +302,7 @@ def save_pred(ypre, inst):
 if __name__ == '__main__':
     x, y, xpre, inst = load_feature(from_file=True, with_ohe=False)
     # xgboost
-    ypre = LGB(x, y, xpre)
+    ypre = XGB(x, y, xpre)
     save_pred(ypre, inst)
     # ypre = XGB(x, y, xpre)
 
