@@ -16,7 +16,7 @@ import pdb
 import pickle
 
 from tqdm import tqdm
-
+import os
 
 def get_feature(for_train=True):
     """
@@ -174,7 +174,7 @@ def get_feature(for_train=True):
     df_result['clickTime_day'] = df_result['clickTime_day'].astype(int)
     df_result['clickTime_hour'] = df_result['clickTime_hour'].astype(int)
     df_result['clickTime_minute'] = df_result['clickTime_minute'].astype(int)
-    df_result['clickTime_week'] = df_result['clickTime'] / 10000 % 7
+    df_result['clickTime_week'] = np.floor(df_result['clickTime'].astype(int)/10000) % 7
 
     # history pcvr 没考虑时间
 
@@ -205,13 +205,25 @@ def get_feature(for_train=True):
 
 
 def get_tf_feature(with_ohe=True, save=True, needDF=False):
-    df_train, not_ohe = get_feature(True)
+    if not os.path.exists('train.csv') or not os.path.exists('test.csv'):
+        print '重新生成特徵'
+        df_train, not_ohe = get_feature(True)
+        df_test, not_ohe = get_feature(False)
+    else:
+        print '從文件加載特徵'
+        df_train, not_ohe, df_test = pd.read_csv('train.csv'), None, pd.read_csv('test.csv')
+
     shuffle(df_train)
-    df_test, not_ohe = get_feature(False)
     df_train.fillna(0, inplace=True)
     df_test.fillna(0, inplace=True)
-    for column in df_train.columns:
-        print df_train[column].unique()
+    
+    df_concate = pd.concat([df_train, df_test])
+    for column in df_concate.columns:
+        print column, df_concate[column].unique().shape, df_concate[column].min(), df_concate[column].max()
+    
+    if save:
+        df_train.to_csv('train.csv', index=False)
+        df_test.to_csv('test.csv', index=False)
 
     if needDF:
         return df_train, df_test
@@ -225,7 +237,7 @@ def get_tf_feature(with_ohe=True, save=True, needDF=False):
     df_test.drop(['label', 'instanceID'], axis=1, inplace=True)
     test_x = df_test.values
 
-    if with_ohe:
+    if with_ohe and not_ohe is not None:
         idx_to_ohe = [i for i, j in enumerate(columns) if j not in not_ohe]
         encoder = OneHotEncoder(categorical_features=idx_to_ohe)
         df_concate = pd.concat([df_train, df_test], axis=1)
@@ -234,6 +246,8 @@ def get_tf_feature(with_ohe=True, save=True, needDF=False):
 
         train_x = encoder.transform(train_x)
         test_x = encoder.transform(test_x)
+    if not_ohe is None and with_ohe:
+        print 'not ohe is None , not going to ohe'
 
     print train_x.shape, type(train_x), train_y.shape, type(train_y)
 
@@ -281,4 +295,5 @@ def split_train_test(x, y, test_size=0.2, stratify=True):
 if __name__ == '__main__':
     # df = get_feature(False)
     # print df.head(5)
+    # load_feature(from_file=True, with_ohe=False)
     get_tf_feature(with_ohe=False)
