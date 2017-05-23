@@ -10,14 +10,11 @@ import time
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
 from sklearn import grid_search
-<<<<<<< HEAD
 from sklearn.ensemble import RandomForestClassifier,RandomForestRegressor, GradientBoostingRegressor
 from sklearn.cross_validation import train_test_split
 from sklearn.linear_model import LogisticRegression
-=======
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
->>>>>>> cf7614174911050901aae414c1a33f6bf3eaddcf
 
 from data import *
 from feature import *
@@ -38,12 +35,9 @@ def logloss(act, pred):
 
 
 def feature_select(x, y, pre_x, rate=0.2):
-<<<<<<< HEAD
     # RF(x, y, pre_x)
-=======
     if not os.path.exists('importances.csv'):
         RF(x, y, pre_x)
->>>>>>> cf7614174911050901aae414c1a33f6bf3eaddcf
     df = pd.read_csv('importances.csv')
     importances = df.imp
     indices = np.argsort(importances)[::-1]
@@ -111,12 +105,9 @@ def RF(x, y, pred_x):
 
 def XGB(x, y, pre_x):
     print '----xgb-----'
-<<<<<<< HEAD
     p_x = pre_x
     x, pre_x = feature_select(x, y, p_x, rate=0.1)
-=======
     x, pre_x = feature_select(x, y, pre_x, rate=0.8)
->>>>>>> cf7614174911050901aae414c1a33f6bf3eaddcf
     print x.shape
     print pre_x.shape
 
