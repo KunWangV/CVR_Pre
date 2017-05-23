@@ -18,52 +18,49 @@ import pickle
 from tqdm import tqdm
 import os
 
+
 def get_feature(for_train=True):
     """
     提取相关特征
+    :name, unique.shape, min, max
+    userID (2805118,) 1 2805118
+    creativeID (6582,) 1 6582
+    positionID (7645,) 1 7645
+    adID (3616,) 1 3616
+    camgaignID (720,) 1 720
+    advertiserID (91,) 1 91
+    appID (50,) 14 472
+    sitesetID (3,) 0 2
 
-    u'label':
-    : id类
-    u'instanceID'
-    u'creativeID'
-    u'userID'
-    u'positionID',
-    u'adID'
-    u'camgaignID',
-    u'advertiserID'
-    u'appID'
+    appCategory (14,) 0 503
+    appPlatform (2,) 1 2
+    education (8,) 0 7
+    gender (3,) 0 2
+    haveBaby (7,) 0 6
+    marriageStatus (4,) 0 3
+    positionType (6,) 0 5
+    hometown_c (22,) 0 21
+    hometown_p (35,) 0 34
+    residence_c (22,) 0 21
+    residence_p (35,) 0 34
+    telecomsOperator (4,) 0 3
+    connectionType (5,) 0 4
 
-    : category 类
-    u'connectionType'
-    u'telecomsOperator'
-    u'appPlatform'
-    u'appCategory'
-    u'age',
-    u'gender'
-    u'education'
-    u'marriageStatus'
-    u'haveBaby'
-    u'hometown_p',
-    u'hometown_c'
-    u'residence_p'
-    u'residence_c'
-    u'sitesetID',
-    u'positionType'
-
-    : 连续值类
-    u'inst_cnt_appcate'
-    u'inst_cnt_installed',
-    u'inst_cate_percent'
-    u'inst_is_installed'
-    u'inst_app_installed',
-    u'action_installed'
-    u'action_cate'
-    u'action_cate_recent',
-    u'tt_is_installed'
-    u'tt_cnt_appcate'
-    u'clickTime_day',
-    u'clickTime_hour'
-    u'clickTime_minute'
+    age (81,) 0 80
+    action_cate (88,) 0 117
+    action_cate_recent (22,) 0 28
+    action_installed (2,) 0 1
+    inst_app_installed (13,) 0 282777
+    inst_cate_percent (3679,) 0.0 1.0
+    inst_cnt_appcate (89,) 0 172
+    inst_cnt_installed (371,) 0 505
+    inst_is_installed (2,) 0 1
+    tt_cnt_appcate (123,) 0 250
+    tt_is_installed (2,) 0 1
+    clickTime_day (15,) 17 31
+    clickTime_hour (24,) 0 23
+    clickTime_minute (60,) 0 59
+    clickTime_week (7,) 0.0 7
     """
     if for_train:
         df_file = read_as_pandas(FILE_TRAIN)
@@ -174,7 +171,7 @@ def get_feature(for_train=True):
     df_result['clickTime_day'] = df_result['clickTime_day'].astype(int)
     df_result['clickTime_hour'] = df_result['clickTime_hour'].astype(int)
     df_result['clickTime_minute'] = df_result['clickTime_minute'].astype(int)
-    df_result['clickTime_week'] = np.floor(df_result['clickTime'].astype(int)/10000) % 7
+    df_result['clickTime_week'] = np.floor(df_result['clickTime'].astype(int) / 10000) % 7
 
     # history pcvr 没考虑时间
 
@@ -216,11 +213,11 @@ def get_tf_feature(with_ohe=True, save=True, needDF=False):
     shuffle(df_train)
     df_train.fillna(0, inplace=True)
     df_test.fillna(0, inplace=True)
-    
+
     df_concate = pd.concat([df_train, df_test])
     for column in df_concate.columns:
         print column, df_concate[column].unique().shape, df_concate[column].min(), df_concate[column].max()
-    
+
     if save:
         df_train.to_csv('train.csv', index=False)
         df_test.to_csv('test.csv', index=False)
