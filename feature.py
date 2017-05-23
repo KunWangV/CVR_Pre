@@ -82,7 +82,7 @@ def get_feature(for_train=True):
 
     # user realated
     df_user = read_as_pandas(FILE_USER)
-    df_user['age'] = np.round(df_user['age'] / 10).astype(int)  # 年龄段
+    # df_user['age'] = np.round(df_user['age'] / 10).astype(int)  # 年龄段
     df_user['hometown_p'] = np.round(df_user['hometown'].astype(int) / 100).astype(int)  # 取省份
     df_user['hometown_c'] = np.round(df_user['hometown'].astype(int) % 100).astype(int)  # 城市
     df_user['residence_p'] = np.round(df_user['residence'].astype(int) / 100).astype(int)  # 取省份
@@ -176,8 +176,24 @@ def get_feature(for_train=True):
     df_result['clickTime_minute'] = df_result['clickTime_minute'].astype(int)
     df_result['clickTime_week'] = df_result['clickTime'] / 10000 % 7
 
+    # history pcvr 没考虑时间
+
     # remove unrelated
-    to_drop += ['clickTime', 'index']
+    to_drop += ['clickTime', 'index', ]
+    not_ohe += ['userID',
+                'inst_cnt_appcate',
+                'inst_cnt_installed',
+                'inst_cate_percent',
+                'inst_is_installed',
+                'inst_app_installed',
+                'action_installed',
+                'action_cate',
+                'action_cate_recent',
+                'tt_is_installed',
+                'tt_cnt_appcate',
+                'clickTime_day',
+                'clickTime_hour',
+                'clickTime_minute', ]
 
     if for_train:
         to_drop += ['conversionTime']
@@ -188,17 +204,23 @@ def get_feature(for_train=True):
     return df_result, not_ohe
 
 
-def get_tf_feature(with_ohe=True, save=True):
+def get_tf_feature(with_ohe=True, save=True, needDF=False):
     df_train, not_ohe = get_feature(True)
     shuffle(df_train)
+    df_test, not_ohe = get_feature(False)
+    df_train.fillna(0, inplace=True)
+    df_test.fillna(0, inplace=True)
+    for column in df_train.columns:
+        print df_train[column].unique()
+
+    if needDF:
+        return df_train, df_test
+
     train_y = np.round(df_train['label']).astype(int).values
     df_train.drop('label', 1, inplace=True)
-    df_train.fillna(0, inplace=True)
     train_x = df_train.values
     columns = df_train.columns
 
-    df_test, not_ohe = get_feature(False)
-    df_test.fillna(0, inplace=True)
     inst_id = df_test['instanceID'].values
     df_test.drop(['label', 'instanceID'], axis=1, inplace=True)
     test_x = df_test.values
