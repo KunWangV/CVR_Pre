@@ -14,7 +14,8 @@ import datetime
 
 from feature import get_tf_feature, split_train_test
 
-tf.logging.set_verbosity(tf.logging.INFO) # Set to INFO for tracking training, default is WARN. ERROR for least messages
+tf.logging.set_verbosity(
+    tf.logging.INFO)  # Set to INFO for tracking training, default is WARN. ERROR for least messages
 
 COLUMNS_DICT = {
     'category': [
@@ -278,7 +279,7 @@ def input_fn(filename, columns=G_COLUMNS, batch_size=BATCH_SIZE, record=RECORD):
     return features, labels
 
 
-def train_and_eval(df_train, df_val, df_test, train_steps):
+def train_and_eval(df_train, df_val, df_test, columns, train_steps):
     """Train and evaluate the model."""
     # remove NaN elements
     # df_train = df_train.dropna(how='any', axis=0)
@@ -288,9 +289,9 @@ def train_and_eval(df_train, df_val, df_test, train_steps):
     print("model directory = %s" % model_dir)
 
     m = build_estimator(model_dir, 'wide-n-deep')
-    m.fit(input_fn=lambda: input_fn(df_train), steps=train_steps)
+    m.fit(input_fn=lambda: input_fn(df_train, columns=columns), steps=train_steps)
     results = m.evaluate(
-        input_fn=lambda: input_fn(df_val), steps=1, matrices=['logloss'])
+        input_fn=lambda: input_fn(df_val, columns=columns), steps=1, matrices=['logloss'])
     for key in sorted(results):
         print("%s: %s" % (key, results[key]))
 
@@ -326,10 +327,9 @@ def main(_):
     df_val.to_csv('wd_df_val.csv', index=False, header=False)
     df_test.to_csv('wd_df_test.csv', index=False, header=False)
 
-    G_COLUMNS = df_train.columns
     # RECORD = df_train.iloc[0, :]
 
-    train_and_eval('wd_df_train.csv', 'wd_df_val.csv', df_test, train_steps=200)
+    train_and_eval('wd_df_train.csv', 'wd_df_val.csv', df_test, df_train.columns, train_steps=200)
 
 
 if __name__ == "__main__":
