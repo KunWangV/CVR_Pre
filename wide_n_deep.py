@@ -1,7 +1,10 @@
 # coding: utf-8
 # pylint: disable=C0103, C0111
 
+from __future__ import absolute_import
 from __future__ import print_function
+from __future__ import division
+
 import pandas as pd
 import tensorflow as tf
 import tensorflow.contrib.layers as layers
@@ -13,13 +16,13 @@ from feature import get_tf_feature, split_train_test
 
 COLUMNS_DICT = {
     'category': [
-        # 'userID',
-        # 'creativeID',
-        # 'positionID',
-        # 'adID',
-        # 'camgaignID',
-        # 'advertiserID',
-        # 'appID',
+        'userID',
+        'creativeID',
+        'positionID',
+        'adID',
+        'camgaignID',
+        'advertiserID',
+        'appID',
         'sitesetID',
         'connectionType',
         'telecomsOperator',
@@ -46,51 +49,40 @@ COLUMNS_DICT = {
 
 COLUMNS = COLUMNS_DICT['category'] + COLUMNS_DICT['continue']
 
-LABEL_COLUMN = "label"
+LABEL_COLUMN = ["label"]
 CATEGORICAL_COLUMNS = COLUMNS_DICT['category']
 CONTINUOUS_COLUMNS = COLUMNS_DICT['continue']
+
+G_COLUMNS = []
+BATCH_SIZE = 40
+RECORD = []
 
 
 def build_estimator(model_dir, model_type):
     """Build an estimator."""
     # Sparse base columns.
-    # userID = layers.sparse_column_with_integerized_feature('userID', 2805118)
-    # creativeID = layers.sparse_column_with_integerized_feature(
-    #     'creativeID', 6582)
-    # positionID = layers.sparse_column_with_integerized_feature(
-    #     'positionID', 7645)
-    # adID = layers.sparse_column_with_integerized_feature('adID', 3616)
-    # camgaignID = layers.sparse_column_with_integerized_feature(
-    #     'camgaignID', 720)
-    # advertiserID = layers.sparse_column_with_integerized_feature(
-    #     'advertiserID', 91)
-    # appID = layers.sparse_column_with_integerized_feature('appID', 50)
+    userID = layers.sparse_column_with_integerized_feature('userID', 2805118)
+    creativeID = layers.sparse_column_with_integerized_feature('creativeID', 6582)
+    positionID = layers.sparse_column_with_integerized_feature('positionID', 7645)
+    adID = layers.sparse_column_with_integerized_feature('adID', 3616)
+    camgaignID = layers.sparse_column_with_integerized_feature('camgaignID', 720)
+    advertiserID = layers.sparse_column_with_integerized_feature('advertiserID', 91)
+    appID = layers.sparse_column_with_integerized_feature('appID', 50)
     sitesetID = layers.sparse_column_with_integerized_feature('sitesetID', 3)
-    appCategory = layers.sparse_column_with_integerized_feature(
-        'appCategory', 14)
-    appPlatform = layers.sparse_column_with_integerized_feature(
-        'appPlatform', 2)
+    appCategory = layers.sparse_column_with_integerized_feature('appCategory', 14)
+    appPlatform = layers.sparse_column_with_integerized_feature('appPlatform', 2)
     education = layers.sparse_column_with_integerized_feature('education', 8)
     gender = layers.sparse_column_with_integerized_feature('gender', 3)
     haveBaby = layers.sparse_column_with_integerized_feature('haveBaby', 7)
-    marriageStatus = layers.sparse_column_with_integerized_feature(
-        'marriageStatus', 4)
-    positionType = layers.sparse_column_with_integerized_feature(
-        'positionType', 6)
-    hometown_c = layers.sparse_column_with_integerized_feature(
-        'hometown_c', 22)
-    hometown_p = layers.sparse_column_with_integerized_feature(
-        'hometown_p', 35)
-    residence_c = layers.sparse_column_with_integerized_feature(
-        'residence_c', 22)
-    residence_p = layers.sparse_column_with_integerized_feature(
-        'residence_p', 35)
-    telecomsOperator = layers.sparse_column_with_integerized_feature(
-        'telecomsOperator', 4)
-    connectionType = layers.sparse_column_with_integerized_feature(
-        'connectionType', 5)
-    clickTime_week = layers.sparse_column_with_integerized_feature(
-        'clickTime_week', 7)
+    marriageStatus = layers.sparse_column_with_integerized_feature('marriageStatus', 4)
+    positionType = layers.sparse_column_with_integerized_feature('positionType', 6)
+    hometown_c = layers.sparse_column_with_integerized_feature('hometown_c', 22)
+    hometown_p = layers.sparse_column_with_integerized_feature('hometown_p', 35)
+    residence_c = layers.sparse_column_with_integerized_feature('residence_c', 22)
+    residence_p = layers.sparse_column_with_integerized_feature('residence_p', 35)
+    telecomsOperator = layers.sparse_column_with_integerized_feature('telecomsOperator', 4)
+    connectionType = layers.sparse_column_with_integerized_feature('connectionType', 5)
+    clickTime_week = layers.sparse_column_with_integerized_feature('clickTime_week', 7)
 
     # Continuous base columns.
     age = layers.real_valued_column("age")
@@ -119,28 +111,28 @@ def build_estimator(model_dir, model_type):
 
     # Wide columns and deep columns.
     wide_columns = [
-        # userID,
-        # creativeID,
-        # positionID,
-        # adID,
-        # camgaignID,
-        # advertiserID,
-        # appID,
-        # sitesetID,
-        # appCategory,
-        # appPlatform,
-        # education,
-        # gender,
-        # haveBaby,
-        # marriageStatus,
-        # positionType,
-        # hometown_c,
-        # hometown_p,
-        # residence_c,
-        # residence_p,
-        # telecomsOperator,
-        # connectionType,
-        # clickTime_week,
+        userID,
+        creativeID,
+        positionID,
+        adID,
+        camgaignID,
+        advertiserID,
+        appID,
+        sitesetID,
+        appCategory,
+        appPlatform,
+        education,
+        gender,
+        haveBaby,
+        marriageStatus,
+        positionType,
+        hometown_c,
+        hometown_p,
+        residence_c,
+        residence_p,
+        telecomsOperator,
+        connectionType,
+        clickTime_week,
 
         # layers.embedding_column(userID, dimension=8),
         # layers.embedding_column(creativeID, dimension=8),
@@ -192,28 +184,28 @@ def build_estimator(model_dir, model_type):
     ]
 
     deep_columns = [
-        # layers.embedding_column(userID, dimension=8),
-        # layers.embedding_column(creativeID, dimension=8),
-        # layers.embedding_column(positionID, dimension=8),
-        # layers.embedding_column(adID, dimension=8),
-        # layers.embedding_column(camgaignID, dimension=8),
-        # layers.embedding_column(advertiserID, dimension=8),
-        # layers.embedding_column(appID, dimension=8),
-        # layers.embedding_column(sitesetID, dimension=8),
-        # layers.embedding_column(appCategory, dimension=8),
-        # layers.embedding_column(appPlatform, dimension=8),
-        # layers.embedding_column(education, dimension=8),
-        # layers.embedding_column(gender, dimension=8),
-        # layers.embedding_column(haveBaby, dimension=8),
-        # layers.embedding_column(marriageStatus, dimension=8),
-        # layers.embedding_column(positionType, dimension=8),
-        # layers.embedding_column(hometown_c, dimension=8),
-        # layers.embedding_column(hometown_p, dimension=8),
-        # layers.embedding_column(residence_c, dimension=8),
-        # layers.embedding_column(residence_p, dimension=8),
-        # layers.embedding_column(telecomsOperator, dimension=8),
-        # layers.embedding_column(connectionType, dimension=8),
-        # layers.embedding_column(clickTime_week, dimension=8),
+        layers.embedding_column(userID, dimension=8),
+        layers.embedding_column(creativeID, dimension=8),
+        layers.embedding_column(positionID, dimension=8),
+        layers.embedding_column(adID, dimension=8),
+        layers.embedding_column(camgaignID, dimension=8),
+        layers.embedding_column(advertiserID, dimension=8),
+        layers.embedding_column(appID, dimension=8),
+        layers.embedding_column(sitesetID, dimension=8),
+        layers.embedding_column(appCategory, dimension=8),
+        layers.embedding_column(appPlatform, dimension=8),
+        layers.embedding_column(education, dimension=8),
+        layers.embedding_column(gender, dimension=8),
+        layers.embedding_column(haveBaby, dimension=8),
+        layers.embedding_column(marriageStatus, dimension=8),
+        layers.embedding_column(positionType, dimension=8),
+        layers.embedding_column(hometown_c, dimension=8),
+        layers.embedding_column(hometown_p, dimension=8),
+        layers.embedding_column(residence_c, dimension=8),
+        layers.embedding_column(residence_p, dimension=8),
+        layers.embedding_column(telecomsOperator, dimension=8),
+        layers.embedding_column(connectionType, dimension=8),
+        layers.embedding_column(clickTime_week, dimension=8),
         age,
         action_cate,
         action_cate_recent,
@@ -248,30 +240,40 @@ def build_estimator(model_dir, model_type):
     return m
 
 
-def input_fn(df):
+def input_fn(filename, columns=G_COLUMNS, batch_size=BATCH_SIZE, record=RECORD):
     """Input builder function."""
     # Creates a dictionary mapping from each continuous feature column name (k) to
     # the values of that column stored in a constant Tensor.
-    continuous_cols = {
-        k: tf.constant(df[k].values)
-        for k in CONTINUOUS_COLUMNS
-    }
-    # Creates a dictionary mapping from each categorical feature column name (k)
-    # to the values of that column stored in a tf.SparseTensor.
-    categorical_cols = {
-        k: tf.SparseTensor(
-            indices=[[i, 0] for i in range(df[k].size)],
-            values=df[k].values,
-            dense_shape=[df[k].size, 1])
-        for k in CATEGORICAL_COLUMNS
-    }
-    # Merges the two dictionaries into one.
-    feature_cols = dict(continuous_cols)
-    feature_cols.update(categorical_cols)
-    # Converts the label column into a constant Tensor.
-    label = tf.constant(df[LABEL_COLUMN].values)
-    # Returns the feature columns and the label.
-    return feature_cols, label
+    filename_queue = tf.train.string_input_producer([filename])
+    reader = tf.TextLineReader()
+    key, value = reader.read_up_to(filename_queue, num_records=batch_size)
+    record_defaults = []
+    for c in columns:
+        if c in CATEGORICAL_COLUMNS:
+            record_defaults.append([0])
+        else:
+            record_defaults.append([0.0])
+
+    data = tf.decode_csv(value, record_defaults=record_defaults)
+
+    # features is a dictionary that maps from column names to tensors of the data.
+    # income_bracket is the last column of the data. Note that this is NOT a dict.
+    all_columns = dict(zip(G_COLUMNS, data))
+
+    # Save the label column
+    # dict.pop() returns the popped array of label values
+    labels = all_columns.pop(LABEL_COLUMN[0])
+
+    # the remaining columns are our features
+    features = all_columns
+
+    # Sparse categorical features must be represented with an additional dimension.
+    # There is no additional work needed for the Continuous columns; they are the unaltered columns.
+    # See docs for tf.SparseTensor for more info
+    for feature_name in CATEGORICAL_COLUMNS:
+        features[feature_name] = tf.expand_dims(features[feature_name], -1)
+
+    return features, labels
 
 
 def train_and_eval(df_train, df_val, df_test, train_steps):
@@ -295,8 +297,7 @@ def train_and_eval(df_train, df_val, df_test, train_steps):
     pred_x = m.predict(x)
     result = pd.DataFrame(df_test['instanceID'])
     result['prob'] = list(pred_x)
-    result.to_csv(
-        "submission.{}.csv".format(datetime.datetime.now()), index=False)
+    result.to_csv("submission.{}.csv".format(datetime.datetime.now()), index=False)
 
 
 FLAGS = None
@@ -312,12 +313,21 @@ def to_int(df):
 def main(_):
     df_train, df_test = get_tf_feature(with_ohe=False, save=True, needDF=True)
     df_train, df_val = split_train_test(df_train, None, with_df=True)
-    
+
+    # conver to int
     df_train = to_int(df_train)
     df_val = to_int(df_val)
     df_test = to_int(df_test)
 
-    train_and_eval(df_train, df_val, df_test, train_steps=200)
+    # save data for queue to read
+    df_train.to_csv('wd_df_train.csv', index=False, header=False)
+    df_val.to_csv('wd_df_val.csv', index=False, header=False)
+    df_test.to_csv('wd_df_test.csv', index=False, header=False)
+
+    G_COLUMNS = df_train.columns
+    # RECORD = df_train.iloc[0, :]
+
+    train_and_eval('wd_df_train.csv', 'wd_df_val.csv', 'wd_df_test.csv', train_steps=200)
 
 
 if __name__ == "__main__":
