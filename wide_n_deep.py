@@ -14,6 +14,8 @@ import datetime
 
 from feature import get_tf_feature, split_train_test
 
+tf.logging.set_verbosity(tf.logging.INFO) # Set to INFO for tracking training, default is WARN. ERROR for least messages
+
 COLUMNS_DICT = {
     'category': [
         'userID',
@@ -279,8 +281,8 @@ def input_fn(filename, columns=G_COLUMNS, batch_size=BATCH_SIZE, record=RECORD):
 def train_and_eval(df_train, df_val, df_test, train_steps):
     """Train and evaluate the model."""
     # remove NaN elements
-    df_train = df_train.dropna(how='any', axis=0)
-    df_val = df_val.dropna(how='any', axis=0)
+    # df_train = df_train.dropna(how='any', axis=0)
+    # df_val = df_val.dropna(how='any', axis=0)
 
     model_dir = tempfile.mkdtemp()
     print("model directory = %s" % model_dir)
@@ -327,7 +329,7 @@ def main(_):
     G_COLUMNS = df_train.columns
     # RECORD = df_train.iloc[0, :]
 
-    train_and_eval('wd_df_train.csv', 'wd_df_val.csv', 'wd_df_test.csv', train_steps=200)
+    train_and_eval('wd_df_train.csv', 'wd_df_val.csv', df_test, train_steps=200)
 
 
 if __name__ == "__main__":
