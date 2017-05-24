@@ -5,6 +5,7 @@ import tensorflow as tf
 import tensorflow.contrib.layers as layers
 import tensorflow.contrib.learn as learn
 import tempfile
+import datetime
 
 from feature import get_tf_feature, split_train_test
 
@@ -52,7 +53,7 @@ def build_estimator(model_dir, model_type):
     residence_p = layers.sparse_column_with_integerized_feature('residence_p', 35)
     telecomsOperator = layers.sparse_column_with_integerized_feature('telecomsOperator', 4)
     connectionType = layers.sparse_column_with_integerized_feature('connectionType', 5)
-    clickTime_week = layers.sparse_column_with_integerized_feature('clickTime_week',7)
+    clickTime_week = layers.sparse_column_with_integerized_feature('clickTime_week', 7)
 
     # Continuous base columns.
     age = layers.real_valued_column("age")
@@ -172,7 +173,7 @@ def input_fn(df):
     continuous_cols = {
         k: tf.constant(df[k].values)
         for k in CONTINUOUS_COLUMNS
-    }
+        }
     # Creates a dictionary mapping from each categorical feature column name (k)
     # to the values of that column stored in a tf.SparseTensor.
     categorical_cols = {
@@ -181,7 +182,7 @@ def input_fn(df):
             values=df[k].values,
             dense_shape=[df[k].size, 1])
         for k in CATEGORICAL_COLUMNS
-    }
+        }
     # Merges the two dictionaries into one.
     feature_cols = dict(continuous_cols)
     feature_cols.update(categorical_cols)
@@ -191,27 +192,36 @@ def input_fn(df):
     return feature_cols, label
 
 
-def train_and_eval(df_train, df_test, train_steps):
+def train_and_eval(df_train, df_val, df_test, train_steps):
     """Train and evaluate the model."""
     # remove NaN elements
     df_train = df_train.dropna(how='any', axis=0)
-    df_test = df_test.dropna(how='any', axis=0)
+    df_val = df_val.dropna(how='any', axis=0)
 
     model_dir = tempfile.mkdtemp()
     print("model directory = %s" % model_dir)
 
     m = build_estimator(model_dir, 'wide-n-deep')
     m.fit(input_fn=lambda: input_fn(df_train), steps=train_steps)
-    results = m.evaluate(input_fn=lambda: input_fn(df_test), steps=1)
+    results = m.evaluate(input_fn=lambda: input_fn(df_val), steps=1)
     for key in sorted(results):
         print("%s: %s" % (key, results[key]))
+
+    x, y = input_fn(df_test.drop(['instanceID'], axis=1))
+
+    pred_x = m.predict(x)
+    result = pd.DataFrame(df_test['instanceID'])
+    result['prob'] = y
+    result.to_csv("submission.{}.csv".format(datetime.datetime.now()), index=False)
+
 
 FLAGS = None
 
 
 def main(_):
     df_train, df_test = get_tf_feature(with_ohe=False, save=True, needDF=True)
-    train_and_eval(df_train, df_test.drop(['instanceID'], axis=1), train_steps=200)
+    df_train, df_val = split_train_test(df_train, None, with_df=True)
+    train_and_eval(df_train, df_val, df_test, train_steps=200)
 
 
 if __name__ == "__main__":

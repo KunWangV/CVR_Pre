@@ -291,14 +291,29 @@ def split_train_test(x, y, test_size=0.2, stratify=True, with_df=False):
 
     else:
         if stratify:
-            train_x, test_x, train_y, test_y = train_test_split(x.drop(['label'], axis=1).values, x['label'].values,
-                                                                test_size=test_size, stratify=y)
-
+            train_x, test_x, train_y, test_y = train_test_split(x.drop(['label'], axis=1).values,
+                                                                x['label'].values,
+                                                                test_size=test_size,
+                                                                stratify=y)
         else:
-            train_x, test_x, train_y, test_y = train_test_split(x.drop(['label'], axis=1).values, x['label'].values,
+            train_x, test_x, train_y, test_y = train_test_split(x.drop(['label'], axis=1).values,
+                                                                x['label'].values,
                                                                 test_size=test_size)
 
+        def to_df(train_x, train_y, x):
+            """
+            把结果拼接成DataFrame
+            :param train_x:
+            :param train_y:
+            :param x:
+            :return:
+            """
+            _df_train_x = pd.DataFrame(train_x)
+            _df_train_x.columns = x.drop(['label'], axis=1).columns
+            _df_train_x['label'] = train_y
+            return _df_train_x
 
+        return to_df(train_x, train_y, x), to_df(test_x, test_y, x)
 
 
 if __name__ == '__main__':
