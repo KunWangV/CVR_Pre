@@ -3,7 +3,10 @@
 import pandas as pd
 import tensorflow as tf
 import tensorflow.contrib.layers as layers
+import tensorflow.contrib.learn as learn
 import tempfile
+
+from feature import get_tf_feature, split_train_test
 
 COLUMNS_DICT = {
     'category': ['creativeID', 'userID', 'positionID', 'adID', 'camgaignID', 'advertiserID', 'appID',
@@ -28,27 +31,28 @@ CONTINUOUS_COLUMNS = COLUMNS_DICT['continue']
 def build_estimator(model_dir, model_type):
     """Build an estimator."""
     # Sparse base columns.
-    userID = layers.sparse_column_with_integerized_feature('userID')
-    creativeID = layers.sparse_column_with_integerized_feature('creativeID')
-    positionID = layers.sparse_column_with_integerized_feature('positionID')
-    adID = layers.sparse_column_with_integerized_feature('adID')
-    camgaignID = layers.sparse_column_with_integerized_feature('camgaignID')
-    advertiserID = layers.sparse_column_with_integerized_feature('advertiserID')
-    appID = layers.sparse_column_with_integerized_feature('appID')
-    sitesetID = layers.sparse_column_with_integerized_feature('sitesetID')
-    appCategory = layers.sparse_column_with_integerized_feature('appCategory')
-    appPlatform = layers.sparse_column_with_integerized_feature('appPlatform')
-    education = layers.sparse_column_with_integerized_feature('education')
-    gender = layers.sparse_column_with_integerized_feature('gender')
-    haveBaby = layers.sparse_column_with_integerized_feature('haveBaby')
-    marriageStatus = layers.sparse_column_with_integerized_feature('marriageStatus')
-    positionType = layers.sparse_column_with_integerized_feature('positionType')
-    hometown_c = layers.sparse_column_with_integerized_feature('hometown_c')
-    hometown_p = layers.sparse_column_with_integerized_feature('hometown_p')
-    residence_c = layers.sparse_column_with_integerized_feature('residence_c')
-    residence_p = layers.sparse_column_with_integerized_feature('residence_p')
-    telecomsOperator = layers.sparse_column_with_integerized_feature('telecomsOperator')
-    connectionType = layers.sparse_column_with_integerized_feature('connectionType')
+    userID = layers.sparse_column_with_integerized_feature('userID', 2805118)
+    creativeID = layers.sparse_column_with_integerized_feature('creativeID', 6582)
+    positionID = layers.sparse_column_with_integerized_feature('positionID', 7645)
+    adID = layers.sparse_column_with_integerized_feature('adID', 3616)
+    camgaignID = layers.sparse_column_with_integerized_feature('camgaignID', 720)
+    advertiserID = layers.sparse_column_with_integerized_feature('advertiserID', 91)
+    appID = layers.sparse_column_with_integerized_feature('appID', 50)
+    sitesetID = layers.sparse_column_with_integerized_feature('sitesetID', 3)
+    appCategory = layers.sparse_column_with_integerized_feature('appCategory', 14)
+    appPlatform = layers.sparse_column_with_integerized_feature('appPlatform', 2)
+    education = layers.sparse_column_with_integerized_feature('education', 8)
+    gender = layers.sparse_column_with_integerized_feature('gender', 3)
+    haveBaby = layers.sparse_column_with_integerized_feature('haveBaby', 7)
+    marriageStatus = layers.sparse_column_with_integerized_feature('marriageStatus', 4)
+    positionType = layers.sparse_column_with_integerized_feature('positionType', 6)
+    hometown_c = layers.sparse_column_with_integerized_feature('hometown_c', 22)
+    hometown_p = layers.sparse_column_with_integerized_feature('hometown_p', 35)
+    residence_c = layers.sparse_column_with_integerized_feature('residence_c', 22)
+    residence_p = layers.sparse_column_with_integerized_feature('residence_p', 35)
+    telecomsOperator = layers.sparse_column_with_integerized_feature('telecomsOperator', 4)
+    connectionType = layers.sparse_column_with_integerized_feature('connectionType', 5)
+    clickTime_week = layers.sparse_column_with_integerized_feature('clickTime_week',7)
 
     # Continuous base columns.
     age = layers.real_valued_column("age")
@@ -65,21 +69,15 @@ def build_estimator(model_dir, model_type):
     clickTime_day = layers.real_valued_column('clickTime_day')
     clickTime_hour = layers.real_valued_column('clickTime_hour')
     clickTime_minute = layers.real_valued_column('clickTime_minute')
-    clickTime_week = layers.real_valued_column('clickTime_week')
 
     # Transformations.
-    age_buckets = layers.bucketized_column(age,
-                                           boundaries=[
-                                               18, 25, 30, 35, 40, 45,
-                                               50, 55, 60, 65
-                                           ])
-    inst_app_installed_buckets = layers.bucketized_column(inst_app_installed,
-                                                          boundaries=[
-                                                              1000, 5000, 10000, 50000, 100000, 500000
-                                                          ])
-    clickTime_hour_buckets = layers.bucketized_column(clickTime_hour, boundaries=[
-        8, 11, 14, 17, 19, 22
-    ])
+    age_buckets = layers.bucketized_column(
+        age, boundaries=[18, 25, 30, 35, 40, 45, 50, 55, 60, 65])
+    inst_app_installed_buckets = layers.bucketized_column(
+        inst_app_installed,
+        boundaries=[1000, 5000, 10000, 50000, 100000, 500000])
+    clickTime_hour_buckets = layers.bucketized_column(
+        clickTime_hour, boundaries=[8, 11, 14, 17, 19, 22])
 
     # Wide columns and deep columns.
     wide_columns = [
@@ -150,12 +148,13 @@ def build_estimator(model_dir, model_type):
     ]
 
     if model_type == "wide":
-        m = tf.contrib.learn.LinearClassifier(model_dir=model_dir,
-                                              feature_columns=wide_columns)
+        m = tf.contrib.learn.LinearClassifier(
+            model_dir=model_dir, feature_columns=wide_columns)
     elif model_type == "deep":
-        m = tf.contrib.learn.DNNClassifier(model_dir=model_dir,
-                                           feature_columns=deep_columns,
-                                           hidden_units=[100, 50])
+        m = tf.contrib.learn.DNNClassifier(
+            model_dir=model_dir,
+            feature_columns=deep_columns,
+            hidden_units=[100, 50])
     else:
         m = tf.contrib.learn.DNNLinearCombinedClassifier(
             model_dir=model_dir,
@@ -170,7 +169,10 @@ def input_fn(df):
     """Input builder function."""
     # Creates a dictionary mapping from each continuous feature column name (k) to
     # the values of that column stored in a constant Tensor.
-    continuous_cols = {k: tf.constant(df[k].values) for k in CONTINUOUS_COLUMNS}
+    continuous_cols = {
+        k: tf.constant(df[k].values)
+        for k in CONTINUOUS_COLUMNS
+    }
     # Creates a dictionary mapping from each categorical feature column name (k)
     # to the values of that column stored in a tf.SparseTensor.
     categorical_cols = {
@@ -178,7 +180,8 @@ def input_fn(df):
             indices=[[i, 0] for i in range(df[k].size)],
             values=df[k].values,
             dense_shape=[df[k].size, 1])
-        for k in CATEGORICAL_COLUMNS}
+        for k in CATEGORICAL_COLUMNS
+    }
     # Merges the two dictionaries into one.
     feature_cols = dict(continuous_cols)
     feature_cols.update(categorical_cols)
@@ -203,16 +206,12 @@ def train_and_eval(df_train, df_test, train_steps):
     for key in sorted(results):
         print("%s: %s" % (key, results[key]))
 
-
 FLAGS = None
 
 
-def main(train, test, train_steps):
-    train_and_eval(train, test, train_steps=train_steps)
-
-
-def run(df_train, df_test, train_steps):
-    tf.app.run(main=main, argv=[df_train, df_test, train_steps])
+def main(_):
+    df_train, df_test = get_tf_feature(with_ohe=False, save=True, needDF=True)
+    train_and_eval(df_train, df_test.drop(['instanceID'], axis=1), train_steps=200)
 
 
 if __name__ == "__main__":

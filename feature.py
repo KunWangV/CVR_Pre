@@ -274,7 +274,7 @@ def load_feature(from_file=True, with_ohe=True):
         return get_tf_feature(with_ohe=with_ohe)
 
 
-def split_train_test(x, y, test_size=0.2, stratify=True):
+def split_train_test(x, y, test_size=0.2, stratify=True, with_df=False):
     """
     分割数据
     :param x:
@@ -283,10 +283,22 @@ def split_train_test(x, y, test_size=0.2, stratify=True):
     :param stratify: 考虑不平衡问题
     :return:
     """
-    if stratify:
-        return train_test_split(x, y, test_size=test_size)
+    if not with_df:
+        if stratify:
+            return train_test_split(x, y, test_size=test_size)
+        else:
+            return train_test_split(x, y, test_size=test_size, stratify=y)
+
     else:
-        return train_test_split(x, y, test_size=test_size, stratify=y)
+        if stratify:
+            train_x, test_x, train_y, test_y = train_test_split(x.drop(['label'], axis=1).values, x['label'].values,
+                                                                test_size=test_size, stratify=y)
+
+        else:
+            train_x, test_x, train_y, test_y = train_test_split(x.drop(['label'], axis=1).values, x['label'].values,
+                                                                test_size=test_size)
+
+
 
 
 if __name__ == '__main__':
