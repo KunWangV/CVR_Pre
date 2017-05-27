@@ -8,10 +8,15 @@ import xgboost as xgb
 import time
 import lightgbm as lgb
 
+
+from sklearn import metrics
+from xgboost.sklearn import XGBClassifier
+from Xgboost_Feature import XgboostFeature
+
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
 from sklearn import grid_search
-from sklearn.ensemble import RandomForestClassifier,RandomForestRegressor, GradientBoostingRegressor
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingRegressor
 from sklearn.cross_validation import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingRegressor
@@ -35,23 +40,32 @@ def logloss(act, pred):
     return ll
 
 
-def feature_select(x, y, pre_x, rate=0.2):
-    # RF(x, y, pre_x)
+def feature_select(x_train, x_test, y_train, y_test, x_pre, rate=0.2):
+    # RF(x_train, y_train, pre_x)
     if not os.path.exists('importances.csv'):
-        RF(x, y, pre_x)
+        RF(x_train, y_train, x_pre)
     df = pd.read_csv('importances.csv')
     importances = df.imp
     indices = np.argsort(importances)[::-1]
     print 'select indices: '
     print indices
     n = int(len(indices) * rate)
-    x = x[:, indices[0:n]]
-    pre_x = pre_x[:, indices[0:n]]
-    return x,  pre_x
+    print 'n'
+    print n
+    print 'x_train.shape'
+    print x_train.shape
+    print 'x_test.shape'
+    print x_test.shape
+    print 'x_pre.shape'
+    print x_pre.shape
+    x_train = x_train[:, indices[0:n]]
+    x_test = x_test[:, indices[0:n]]
+    x_pre = x_pre[:, indices[0:n]]
+    return x_train, x_test, y_train, y_test, x_pre
 
 
-def threshold(y, thresh=0.005, val = 1e-6):
-    y[y<=thresh] = val
+def threshold(y, thresh=0.005, val=1e-6):
+    y[y <= thresh] = val
     return y
 
 
@@ -61,9 +75,20 @@ def submit(y, inst):
     data = pd.DataFrame(inst, columns=['instanceID'])
     data['prob'] = y
     data.instanceID = np.round(data.instanceID).astype(int)
-    data = data.sort(['instanceID'], ascending = True)
-    data.to_csv('../res/'+now+'.csv', index=False)
+    data = data.sort(['instanceID'], ascending=True)
+    data.to_csv('../res/' + now + '.csv', index=False)
 
+
+def NewFeatrue(x_train, x_test, y_train, y_test, x_pre):
+    # 自己设置xgboost模型参数 默认树个数30
+    model = XgboostFeature(n_estimators=200, learning_rate=0.1, max_depth=7, min_child_weight=5, gamma=0.3, subsample=0.9,
+                           colsample_bytree=0.9, objective='binary:logistic', nthread=4, scale_pos_weight=1, reg_alpha=1e-05, reg_lambda=1, seed=27)
+    # 切分训练集训练叶子特征模型 返回值是 原特征+新特征
+    x_train, y_train, x_test, y_test, x_pre = model.fit_model_split(
+        x_train, y_train, x_test, y_test, x_pre)
+    # 不切分训练集训练叶子特征模型  返回值 是原特征+新特征
+    # X_train,y_train, X_test, y_test=model.fit_model(X_train, y_train,X_test, y_test)
+    return x_train, x_test, y_train, y_test, x_pre
 
 
 def RF(x, y, pred_x):
@@ -80,8 +105,10 @@ def RF(x, y, pred_x):
     weight = float(posnum) / (posnum + negnum)
     print 'weight:', weight
 
+    print x.shape
+    print y.shape
     xtrain, xvalid, ytrain, yvalid = train_test_split(
-        x, y, test_size=0.2, random_state=0,stratify=y)
+        x, y, test_size=0.2, random_state=0, stratify=y)
 
     clf = RandomForestClassifier(n_estimators=500,
                                  max_depth=6,
@@ -104,27 +131,12 @@ def RF(x, y, pred_x):
     return pred[:, 1], indices
 
 
-def XGB(x, y, pre_x):
+def XGB(xtrain, xvalid, ytrain, yvalid, pre_x):
     print '----xgb-----'
-    p_x = pre_x
-    # x, pre_x = feature_select(x, y, p_x, rate=0.1)
-    x, pre_x = feature_select(x, y, pre_x, rate=0.8)
-    print x.shape
-    print pre_x.shape
-
-    posnum = y[y == 1].shape[0]
-    negnum = y[y == 0].shape[0]
-    print 'pos:', posnum, ' neg:', negnum
-
-    weight = float(posnum) / (posnum + negnum)
-    print 'weight:', weight
-
-    xtrain, xvalid, ytrain, yvalid = train_test_split(
-        x, y, test_size=0.2, random_state=0, stratify=y)
 
     if not submit_flag:
         xtrain, xtest, ytrain, ytest = train_test_split(
-            xtrain, ytrain, test_size=0.2, random_state=0,stratify=y)
+            xtrain, ytrain, test_size=0.2, random_state=0, stratify=y)
         dtest = xgb.DMatrix(xtest, label=ytest, missing=-1)
 
     dtrain = xgb.DMatrix(xtrain, label=ytrain, missing=-1)
@@ -143,7 +155,7 @@ def XGB(x, y, pre_x):
         'scale_pos_weight': weight
     }
     watchlist = [(dtrain, 'train'), (dvalid, 'val')]
-    model = xgb.train(param, dtrain, num_boost_round=60, evals=watchlist)
+    model = xgb.train(param, dtrain, num_boost_round=200, evals=watchlist)
 
     # valid
     print model.best_iteration
@@ -163,30 +175,18 @@ def XGB(x, y, pre_x):
 def deep_and_wide(X, y):
     pass
 
+
 def save_pred(ypre, inst):
-    df = pd.DataFrame({'instanceID':inst, 'prob':ypre})
+    df = pd.DataFrame({'instanceID': inst, 'prob': ypre})
     df.to_csv('submission.csv', index=False)
 
-def LR(x, y, pre_x):
+
+def LR(xtrain, xvalid, ytrain, yvalid, pre_x):
     print '----LR-----'
-    p_x = pre_x
-    x, pre_x = feature_select(x, y, p_x, rate=0.1)
-    print x.shape
-    print pre_x.shape
-
-    posnum = y[y == 1].shape[0]
-    negnum = y[y == 0].shape[0]
-    print 'pos:', posnum, ' neg:', negnum
-
-    weight = float(posnum) / (posnum + negnum)
-    print 'weight:', weight
-
-    xtrain, xvalid, ytrain, yvalid = train_test_split(
-        x, y, test_size=0.2, random_state=0,stratify=y)
 
     if not submit_flag:
         xtrain, xtest, ytrain, ytest = train_test_split(
-            xtrain, ytrain, test_size=0.2, random_state=0,stratify=y)
+            xtrain, ytrain, test_size=0.2, random_state=0, stratify=y)
         dtest = xgb.DMatrix(xtest, label=ytest, missing=-1)
 
     sc = StandardScaler()
@@ -212,25 +212,10 @@ def LR(x, y, pre_x):
     return pre_y
 
 
-def LGB(x, y, pre_x):
-    x, pre_x = feature_select(x, y, pre_x, rate=0.1)
-    print '----lightgbm-----'
-    print x.shape
-    print pre_x.shape
-
-    posnum = y[y == 1].shape[0]
-    negnum = y[y == 0].shape[0]
-
-    print 'pos:', posnum, ' neg:', negnum
-    weight = float(posnum) / (posnum + negnum)
-    print 'weight:', weight
-
-    xtrain, xvalid, ytrain, yvalid = train_test_split(
-        x, y, test_size=0.2, random_state=0,stratify=y)
-
+def LGB(xtrain, xvalid, ytrain, yvalid, pre_x):
     if not submit_flag:
         xtrain, xtest, ytrain, ytest = train_test_split(
-            xtrain, ytrain, test_size=0.2, random_state=0,stratify=y)
+            xtrain, ytrain, test_size=0.2, random_state=0, stratify=y)
 
     lgb_train = lgb.Dataset(xtrain, ytrain)
     lgb_eval = lgb.Dataset(xvalid, yvalid, reference=lgb_train)
@@ -265,45 +250,47 @@ def LGB(x, y, pre_x):
     print '-----valid-----'
     valid_pre = threshold(valid_pre)
     logloss(yvalid, valid_pre)
-
-    if not submit_flag:
-        print '-----------test----------'
-        test_pre = gbm.predict(xtest, num_iteration=gbm.best_iteration)
-        logloss(ytest, test_pre)
-        #logloss(ytest, threshold(test_pre, thresh=0.0005, val = 0))
-        '''
-        print test_pre[test_pre < 0.001].shape
-        print '-----test-----'
-        logloss(ytest, threshold(test_pre, val = 1e-4))
-        logloss(ytest, threshold(test_pre, val = 1e-3))
-        logloss(ytest, threshold(test_pre, val = 0.0005))
-        logloss(ytest, threshold(test_pre, val = 0.001))
-        logloss(ytest, threshold(test_pre, val = 0.001))
-        logloss(ytest, threshold(test_pre, val = 1e-5))
-        logloss(ytest, threshold(test_pre, val = 1e-6))
-        logloss(ytest, threshold(test_pre, val = 1e-7))
-        logloss(ytest, threshold(test_pre, val = 1e-8))
-        logloss(ytest, threshold(test_pre, val = 1e-5))
-        logloss(ytest, threshold(test_pre, thresh=0.004, val = 1e-5))
-        logloss(ytest, threshold(test_pre, thresh=0.004, val = 1e-5))
-        logloss(ytest, threshold(test_pre, thresh=0.003, val = 1e-5))
-        logloss(ytest, threshold(test_pre, thresh=0.003, val = 1e-6))
-        logloss(ytest, threshold(test_pre, thresh=0.003, val = 1e-7))
-        '''
-
     y_pre = gbm.predict(pre_x, num_iteration=gbm.best_iteration)
 
     return y_pre
 
-def save_pred(ypre, inst):
-    df = pd.DataFrame({'instanceID':inst, 'prob':ypre})
-    df.to_csv('submission.csv', index=False)
 
 if __name__ == '__main__':
-    x, y, xpre, inst = load_feature(from_file=True, with_ohe=False)
+
+    # 导入数据
+    x, y, x_pre, inst = load_feature(from_file=False, with_ohe=False)
+    # 数据分割为测试集和训练集
+    # x_train, x_test, y_train, y_test = train_test_split(
+    #     x, y, test_size=0.2, random_state=0, stratify=y)  # test_size测试集合所占比例
+    # 使用XGBoost构造新特征
+    # x_train, x_test, y_train, y_test, x_pre = NewFeatrue(
+    #     x_train, x_test, y_train, y_test, x_pre)
+    # print 'x_train.shape'
+    # print x_train.shape
+    # print 'x_test.shape'
+    # print x_test.shape
+    # print 'x_pre.shape'
+    # print x_pre.shape
+    # 使用RF选择重要特征
+    # x_train, x_test, y_train, y_test, x_pre = feature_select(
+    #     x_train, x_test, y_train, y_test, x_pre, rate=0.8)
+
+    # posnum = y[y == 1].shape[0]
+    # negnum = y[y == 0].shape[0]
+    # print 'pos:', posnum, ' neg:', negnum
+
+    # weight = float(posnum) / (posnum + negnum)
+    # print 'weight:', weight
+
     # xgboost
-    ypre = XGB(x, y, xpre)
-    save_pred(ypre, inst)
+    # ypre = XGB(x_train, x_test, y_train, y_test, x_pre)
+    # LR
+    # ypre = LR(x_train, x_test, y_train, y_test, x_pre)
+    # LGB
+    # ypre = LGB(x_train, x_test, y_train, y_test, x_pre)
+
+    # 保存结果
+    # save_pred(ypre, inst)
     # ypre = XGB(x, y, xpre)
 
     # random forest
