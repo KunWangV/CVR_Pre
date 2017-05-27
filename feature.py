@@ -29,7 +29,7 @@ def get_hist_feature(hist_list, df_concat, with_count=True):
         if with_count:
             df_concat['cnt_' + vn] = np.zeros(df_concat.shape[0])
         # 第十七天使用当天的妆化率
-        for i in range(17, 32):
+        for i in range(17, 31):
             df_concat['key'] = df_concat[vn].astype('category').values.codes
             if i > 17:
                 df_grp = df_concat.ix[df_concat['clickTime_day'] < i, ['label', 'key']].copy()
