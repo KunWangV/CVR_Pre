@@ -19,13 +19,46 @@ from tqdm import tqdm
 import os
 
 
+def get_hist_feature(hist_list, df_concat, with_count=True):
+    """
+    历史数据特征
+    :return:
+    """
+    for vn in hist_list:
+        df_concat['cvt_' + vn] = np.zeros(df_concat.shape[0])
+        if with_count:
+            df_concat['cnt_' + vn] = np.zeros(df_concat.shape[0])
+        # 第十七天使用当天的妆化率
+        for i in range(17, 31):
+            df_concat['key'] = df_concat[vn].astype('category').values.codes
+            if i > 17:
+                df_grp = df_concat.ix[df_concat['clickTime_day'] < i, ['label', 'key']].copy()
+            else:
+                df_grp = df_concat.ix[df_concat['clickTime_day'] == i, ['label', 'key']].copy()
+
+            cnt = df_grp.groupby('key').aggregate(np.size)
+            sum = df_grp.groupby('key').aggregate(np.sum)
+            v_codes = df_concat.ix[df_concat['clickTime_day'] == i, 'key']
+            _cnt = cnt.loc[v_codes, :].values
+            _sum = sum.loc[v_codes, :].values
+            _cnt[np.isnan(_sum)] = 1
+            _sum[np.isnan(_sum)] = 0
+
+            df_concat.ix[df_concat['clickTime_day'] == i, 'cvt_' + vn] = _sum / _cnt
+            if with_count:
+                df_concat.ix[df_concat['clickTime_day'] == i, 'cnt_' + vn] = _cnt
+
+    df_concat.drop(['key'], axis=1, inplace=True)
+    # df_concat.to_csv('hist_feature.csv', index=False)
+
+
 def get_feature(for_train=True):
     """
     提取相关特征
     :name, unique.shape, min, max
     userID (2805118,) 1 2805118
     creativeID (6582,) 1 6582
-    positionID (7645,) 1 7645
+    positionID (7645,) df_sum 7645
     adID (3616,) 1 3616
     camgaignID (720,) 1 720
     advertiserID (91,) 1 91
@@ -45,6 +78,7 @@ def get_feature(for_train=True):
     residence_p (35,) 0 34
     telecomsOperator (4,) 0 3
     connectionType (5,) 0 4
+    clickTime_week (7,) 0 6
 
     age (81,) 0 80
     action_cate (88,) 0 117
@@ -60,7 +94,6 @@ def get_feature(for_train=True):
     clickTime_day (15,) 17 31
     clickTime_hour (24,) 0 23
     clickTime_minute (60,) 0 59
-    clickTime_week (7,) 0.0 7
     """
     if for_train:
         df_file = read_as_pandas(FILE_TRAIN)
@@ -164,33 +197,43 @@ def get_feature(for_train=True):
     df_result['tt_cnt_appcate'] = df_result['action_cate'] + df_result['inst_cnt_appcate']  # clickTime之前该app同类应用安装次数
 
     # context
-    df_result['clickTime_day'] = df_result['clickTime'].astype(str).str.slice(0, 2)
-    df_result['clickTime_hour'] = df_result['clickTime'].astype(str).str.slice(2, 4)
-    df_result['clickTime_minute'] = df_result['clickTime'].astype(str).str.slice(4, 6)
+    df_result['clickTime_day'] = pd.Series(df_result['clickTime'].astype(str).str.slice(0, 2)).astype(int)
+    df_result['clickTime_hour'] = pd.Series(df_result['clickTime'].astype(str).str.slice(2, 4)).astype(int)
+    df_result['clickTime_minute'] = pd.Series(df_result['clickTime'].astype(str).str.slice(4, 6)).astype(int)
 
-    df_result['clickTime_day'] = df_result['clickTime_day'].astype(int)
-    df_result['clickTime_hour'] = df_result['clickTime_hour'].astype(int)
-    df_result['clickTime_minute'] = df_result['clickTime_minute'].astype(int)
-    df_result['clickTime_week'] = np.floor(df_result['clickTime'].astype(int) / 10000) % 7
+    df_result['clickTime_week'] = pd.Series(np.floor(df_result['clickTime'].astype(int) / 10000) % 7).astype(int)
 
     # history pcvr 没考虑时间
+    hist_list = [
+        'userID',
+        'creativeID',
+        'positionID',
+        'adID',
+        'camgaignID',
+        'advertiserID',
+        'appID',
+    ]
+
+    # [17-30] 第一天使用均值替代或使用后一天替代 注意：后4-5天的转化率有些不准(广告商可能没有反馈过来)
 
     # remove unrelated
     to_drop += ['clickTime', 'index', ]
-    not_ohe += ['userID',
-                'inst_cnt_appcate',
-                'inst_cnt_installed',
-                'inst_cate_percent',
-                'inst_is_installed',
-                'inst_app_installed',
-                'action_installed',
-                'action_cate',
-                'action_cate_recent',
-                'tt_is_installed',
-                'tt_cnt_appcate',
-                'clickTime_day',
-                'clickTime_hour',
-                'clickTime_minute', ]
+    not_ohe += [
+        'userID',
+        'inst_cnt_appcate',
+        'inst_cnt_installed',
+        'inst_cate_percent',
+        'inst_is_installed',
+        'inst_app_installed',
+        'action_installed',
+        'action_cate',
+        'action_cate_recent',
+        'tt_is_installed',
+        'tt_cnt_appcate',
+        'clickTime_day',
+        'clickTime_hour',
+        'clickTime_minute',
+    ]
 
     if for_train:
         to_drop += ['conversionTime']
@@ -215,8 +258,19 @@ def get_tf_feature(with_ohe=True, save=True, needDF=False):
     df_test.fillna(0, inplace=True)
 
     df_concate = pd.concat([df_train, df_test])
+    get_hist_feature(['userID',
+                      'creativeID',
+                      'positionID',
+                      'adID',
+                      'camgaignID',
+                      'advertiserID',
+                      'appID',
+                      'sitesetID', ], df_concat=df_concate)
     for column in df_concate.columns:
         print column, df_concate[column].unique().shape, df_concate[column].min(), df_concate[column].max()
+
+    df_train = (df_concate.iloc[:df_train.shape[0], :]).drop(['instanceID'], axis=1) # 重新赋值
+    df_test = df_concate.iloc[-df_test.shape[0]:, :] # 重新赋值
 
     if save:
         df_train.to_csv('train.csv', index=False)
@@ -320,4 +374,5 @@ if __name__ == '__main__':
     # df = get_feature(False)
     # print df.head(5)
     # load_feature(from_file=True, with_ohe=False)
-    get_tf_feature(with_ohe=False)
+    # get_tf_feature(with_ohe=False)
+    get_hist_feature(['creativeID'], with_count=True)
