@@ -21,7 +21,7 @@ import os
 
 def get_hist_feature(hist_list, df_concat, with_count=True):
     """
-    历史数据特征
+    单变量历史转化率，历史数据特征
     :return:
     """
     for vn in hist_list:
@@ -29,7 +29,7 @@ def get_hist_feature(hist_list, df_concat, with_count=True):
         if with_count:
             df_concat['cnt_' + vn] = np.zeros(df_concat.shape[0])
         # 第十七天使用当天的妆化率
-        for i in range(17, 31):
+        for i in range(17, 32):
             df_concat['key'] = df_concat[vn].astype('category').values.codes
             if i > 17:
                 df_grp = df_concat.ix[df_concat['clickTime_day'] < i, ['label', 'key']].copy()
@@ -38,19 +38,29 @@ def get_hist_feature(hist_list, df_concat, with_count=True):
 
             cnt = df_grp.groupby('key').aggregate(np.size)
             sum = df_grp.groupby('key').aggregate(np.sum)
-            v_codes = df_concat.ix[df_concat['clickTime_day'] == i, 'key']
+            v_codes = df_concat.ix[df_concat['clickTime_day'] == i, 'key'].values
             _cnt = cnt.loc[v_codes, :].values
             _sum = sum.loc[v_codes, :].values
-            _cnt[np.isnan(_sum)] = 1
+
+            __cnt = _cnt.copy()
+            __cnt[np.isnan(__cnt)] = 1
+
+            _cnt[np.isnan(_cnt)] = 0
             _sum[np.isnan(_sum)] = 0
 
-            df_concat.ix[df_concat['clickTime_day'] == i, 'cvt_' + vn] = _sum / _cnt
+            df_concat.ix[df_concat['clickTime_day'] == i, 'cvt_' + vn] = _sum / __cnt
             if with_count:
                 df_concat.ix[df_concat['clickTime_day'] == i, 'cnt_' + vn] = _cnt
 
     df_concat.drop(['key'], axis=1, inplace=True)
     # df_concat.to_csv('hist_feature.csv', index=False)
 
+def multi_hist():
+    """
+    多个变量的历史转化率
+    :return:
+    """
+    pass
 
 def get_feature(for_train=True):
     """
@@ -269,8 +279,8 @@ def get_tf_feature(with_ohe=True, save=True, needDF=False):
     for column in df_concate.columns:
         print column, df_concate[column].unique().shape, df_concate[column].min(), df_concate[column].max()
 
-    df_train = (df_concate.iloc[:df_train.shape[0], :]).drop(['instanceID'], axis=1) # 重新赋值
-    df_test = df_concate.iloc[-df_test.shape[0]:, :] # 重新赋值
+    df_train = (df_concate.iloc[:df_train.shape[0], :]).drop(['instanceID'], axis=1)  # 重新赋值
+    df_test = df_concate.iloc[-df_test.shape[0]:, :]  # 重新赋值
 
     if save:
         df_train.to_csv('train.csv', index=False)
