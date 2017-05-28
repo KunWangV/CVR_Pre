@@ -178,6 +178,8 @@ def deep_and_wide(X, y):
 
 def save_pred(ypre, inst):
     df = pd.DataFrame({'instanceID': inst, 'prob': ypre})
+    print 'df:'
+    print df.shape
     df.to_csv('submission.csv', index=False)
 
 
@@ -224,11 +226,11 @@ def LGB(xtrain, xvalid, ytrain, yvalid, pre_x):
         'boosting_type': 'gbdt',
         'objective': 'binary',
         'metric': 'binary_logloss',
-        'learning_rate': 0.05,
+        'learning_rate': 0.03,
         'feature_fraction': 0.5,
         'is_unbalance': True,
         'scale_pos_weight': weight,
-        'max_depth': 6,
+        'max_depth': 3,
         'verbose': -1,
         'num_threads': 16
     }
@@ -239,7 +241,7 @@ def LGB(xtrain, xvalid, ytrain, yvalid, pre_x):
 
     gbm = lgb.train(params,
                     lgb_train,
-                    num_boost_round=500,
+                    num_boost_round=100,
                     valid_sets=lgb_eval)
 
     # gbm.save_model('gbm_model.txt')
@@ -258,10 +260,9 @@ def LGB(xtrain, xvalid, ytrain, yvalid, pre_x):
 if __name__ == '__main__':
 
     # 导入数据
-    x, y, x_pre, inst = load_feature(from_file=False, with_ohe=False)
+    train_x, train_y, test_x, test_y, pre_x, inst_id = load_feature(from_file=False, with_ohe=False,modelType='LGBM',test_days=2)
     # 数据分割为测试集和训练集
-    # x_train, x_test, y_train, y_test = train_test_split(
-    #     x, y, test_size=0.2, random_state=0, stratify=y)  # test_size测试集合所占比例
+    #x_train, x_test, y_train, y_test = split_train_test_by_day(x, y, test_day_size=2)  # test_size测试集合所占比例
     # 使用XGBoost构造新特征
     # x_train, x_test, y_train, y_test, x_pre = NewFeatrue(
     #     x_train, x_test, y_train, y_test, x_pre)
@@ -275,22 +276,23 @@ if __name__ == '__main__':
     # x_train, x_test, y_train, y_test, x_pre = feature_select(
     #     x_train, x_test, y_train, y_test, x_pre, rate=0.8)
 
-    # posnum = y[y == 1].shape[0]
-    # negnum = y[y == 0].shape[0]
-    # print 'pos:', posnum, ' neg:', negnum
+    posnum = train_y[train_y == 1].shape[0]
+    negnum = train_y[train_y == 0].shape[0]
+    print 'pos:', posnum, ' neg:', negnum
 
-    # weight = float(posnum) / (posnum + negnum)
-    # print 'weight:', weight
+    weight = float(posnum) / (posnum + negnum)
+    print 'weight:', weight
 
     # xgboost
     # ypre = XGB(x_train, x_test, y_train, y_test, x_pre)
     # LR
     # ypre = LR(x_train, x_test, y_train, y_test, x_pre)
     # LGB
-    # ypre = LGB(x_train, x_test, y_train, y_test, x_pre)
+    ypre = LGB(train_x, test_x, train_y, test_y, pre_x)
 
     # 保存结果
-    # save_pred(ypre, inst)
+    inst_id=inst_id.astype('int64')
+    save_pred(ypre, inst_id)
     # ypre = XGB(x, y, xpre)
 
     # random forest
