@@ -139,9 +139,11 @@ def to_LGBM(df_train, df_pre, test_days=2):
     #     LGBM_x['creativeID']).astype('category').values.codes
     # LGBM_x['camgaignID'] = pd.Series(
     #     LGBM_x['camgaignID']).astype('category').values.codes
-    pre_x = LGBM_x.iloc[-df_test.shape[0], :].copy()
+    pre_x = LGBM_x.iloc[-df_pre.shape[0]:].copy()
+    print 'pre x columns: '
+    print pre_x.columns
     train_x = LGBM_x.ix[LGBM_x['clickTime_day'] <= (30 - test_days), :].copy()
-    test_x = LGBM_x.ix[(LGBM_x['clickTime_day'] > (30 -test_days)) & (test_pre_x['clickTime_day'] <= 30), :].copy()
+    test_x = LGBM_x.ix[(LGBM_x['clickTime_day'] > (30 -test_days)) & (LGBM_x['clickTime_day'] <= 30), :].copy()
     print 'pre_x.shape:' 
     print pre_x.shape
 

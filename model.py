@@ -265,8 +265,8 @@ def LGB(xtrain, xvalid, ytrain, yvalid, pre_x):
     valid_pre = threshold(valid_pre)
     logloss(yvalid, valid_pre)
     y_pre = gbm.predict(pre_x, num_iteration=gbm.best_iteration)
-    print 'thresholding final submission'
-    y_pre = threshold(y_pre)
+    print ' not thresholding final submission'
+    # y_pre = threshold(y_pre)
     return y_pre
 
 
