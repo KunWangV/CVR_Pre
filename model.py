@@ -220,13 +220,6 @@ def LGB(xtrain, xvalid, ytrain, yvalid, pre_x):
         xtrain, xtest, ytrain, ytest = train_test_split(
             xtrain, ytrain, test_size=0.2, random_state=0, stratify=y)
 
-    posnum = ytrain[ytrain == 1].shape[0]
-    negnum = ytrain[ytrain == 0].shape[0]
-    print 'pos:', posnum, ' neg:', negnum
-
-    weight = float(posnum) / (posnum + negnum)
-    print 'weight:', weight
-
     lgb_train = lgb.Dataset(xtrain, ytrain)
     lgb_eval = lgb.Dataset(xvalid, yvalid, reference=lgb_train)
 
@@ -288,6 +281,13 @@ if __name__ == '__main__':
     # 使用RF选择重要特征
     # x_train, x_test, y_train, y_test, x_pre = feature_select(
     #     x_train, x_test, y_train, y_test, x_pre, rate=0.8)
+
+    posnum = train_y[train_y == 1].shape[0]
+    negnum = train_y[train_y == 0].shape[0]
+    print 'pos:', posnum, ' neg:', negnum
+
+    weight = float(posnum) / (posnum + negnum)
+    print 'weight:', weight
 
     # xgboost
     # ypre = XGB(x_train, x_test, y_train, y_test, x_pre)
