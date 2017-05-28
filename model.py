@@ -216,8 +216,16 @@ def LR(xtrain, xvalid, ytrain, yvalid, pre_x):
 
 def LGB(xtrain, xvalid, ytrain, yvalid, pre_x):
     if not submit_flag:
+        print "lgb: split train and test"
         xtrain, xtest, ytrain, ytest = train_test_split(
             xtrain, ytrain, test_size=0.2, random_state=0, stratify=y)
+
+    posnum = ytrain[ytrain == 1].shape[0]
+    negnum = ytrain[ytrain == 0].shape[0]
+    print 'pos:', posnum, ' neg:', negnum
+
+    weight = float(posnum) / (posnum + negnum)
+    print 'weight:', weight
 
     lgb_train = lgb.Dataset(xtrain, ytrain)
     lgb_eval = lgb.Dataset(xvalid, yvalid, reference=lgb_train)
@@ -230,7 +238,7 @@ def LGB(xtrain, xvalid, ytrain, yvalid, pre_x):
         'feature_fraction': 0.5,
         'is_unbalance': True,
         'scale_pos_weight': weight,
-        'max_depth': 3,
+        'max_depth': 6,
         'verbose': -1,
         'num_threads': 16
     }
@@ -241,8 +249,9 @@ def LGB(xtrain, xvalid, ytrain, yvalid, pre_x):
 
     gbm = lgb.train(params,
                     lgb_train,
-                    num_boost_round=100,
-                    valid_sets=lgb_eval)
+                    num_boost_round=1000,
+                    valid_sets=lgb_eval,
+                    early_stopping_rounds=100)
 
     # gbm.save_model('gbm_model.txt')
 
@@ -250,10 +259,14 @@ def LGB(xtrain, xvalid, ytrain, yvalid, pre_x):
 
     valid_pre = gbm.predict(xvalid, num_iteration=gbm.best_iteration)
     print '-----valid-----'
+    print 'not threshold: '
+    logloss(yvalid, valid_pre)
+    print 'threshold: '
     valid_pre = threshold(valid_pre)
     logloss(yvalid, valid_pre)
     y_pre = gbm.predict(pre_x, num_iteration=gbm.best_iteration)
-
+    print 'thresholding final submission'
+    y_pre = threshold(y_pre)
     return y_pre
 
 
@@ -275,13 +288,6 @@ if __name__ == '__main__':
     # 使用RF选择重要特征
     # x_train, x_test, y_train, y_test, x_pre = feature_select(
     #     x_train, x_test, y_train, y_test, x_pre, rate=0.8)
-
-    posnum = train_y[train_y == 1].shape[0]
-    negnum = train_y[train_y == 0].shape[0]
-    print 'pos:', posnum, ' neg:', negnum
-
-    weight = float(posnum) / (posnum + negnum)
-    print 'weight:', weight
 
     # xgboost
     # ypre = XGB(x_train, x_test, y_train, y_test, x_pre)

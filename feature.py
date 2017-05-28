@@ -18,7 +18,6 @@ import pickle
 #from tqdm import tqdm
 import os
 
-
 def to_LGBM(df_train, df_pre, test_days=2):
     """
     cvt_positionID (5454,) 0.0 1.0
@@ -112,7 +111,7 @@ def to_LGBM(df_train, df_pre, test_days=2):
 
     inst_id = df_pre['instanceID'].values
     df_pre.drop(['instanceID'], axis=1, inplace=True)
-    LGBM_x = pd.concat([df_train, df_pre])
+    LGBM_x = pd.concat([df_train, df_pre], axis=0)
     LGBM_x = LGBM_x.ix[:, feature_list]
     LGBM_x.cnt_userID = LGBM_x.cnt_userID / 10000
     LGBM_x.cnt_connectionType = LGBM_x.cnt_connectionType / 10000
@@ -140,10 +139,9 @@ def to_LGBM(df_train, df_pre, test_days=2):
     #     LGBM_x['creativeID']).astype('category').values.codes
     # LGBM_x['camgaignID'] = pd.Series(
     #     LGBM_x['camgaignID']).astype('category').values.codes
-    train_x = LGBM_x.ix[LGBM_x['clickTime_day'] <= 30 - test_days, :].copy()
-    test_pre_x = LGBM_x.ix[LGBM_x['clickTime_day'] > 30 -test_days, :].copy()
-    test_x = test_pre_x.ix[test_pre_x['clickTime_day'] <= 30, :].copy()
-    pre_x = LGBM_x.ix[LGBM_x['clickTime_day'] == 31, :].copy()
+    pre_x = LGBM_x.iloc[-df_test.shape[0], :].copy()
+    train_x = LGBM_x.ix[LGBM_x['clickTime_day'] <= (30 - test_days), :].copy()
+    test_x = LGBM_x.ix[(LGBM_x['clickTime_day'] > (30 -test_days)) & (test_pre_x['clickTime_day'] <= 30), :].copy()
     print 'pre_x.shape:' 
     print pre_x.shape
 
@@ -201,8 +199,8 @@ def get_hist_feature(hist_list, df_concat, with_count=True):
                 df_concat.ix[df_concat['clickTime_day'] == i,
                              'cvt_' + vn] = _sum.astype('float64') / __cnt
                 if with_count:
-                    df_concat.ix[df_concat['clickTime_day']
-                                 == i, 'cnt_' + vn] = _cnt
+                    df_concat.ix[df_concat['clickTime_day'] == i, 'cnt_' + vn] = _cnt
+                    
     df_concat.drop(['key'], axis=1, inplace=True)
     df_concat[np.isnan(df_concat)] = 0
     # df_concat.to_csv('hist_feature.csv', index=False)
@@ -482,7 +480,7 @@ def get_tf_feature(with_ohe=True, save=True, needDF=False, modelType='LGBM',test
         df_train.fillna(0, inplace=True)
         df_test.fillna(0, inplace=True)
 
-        df_concate = pd.concat([df_train, df_test])
+        df_concate = pd.concat([df_train, df_test], axis=0)
         get_hist_feature(['userID',
                           'creativeID',
                           'positionID',
