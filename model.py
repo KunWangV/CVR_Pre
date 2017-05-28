@@ -131,7 +131,7 @@ def RF(x, y, pred_x):
     return pred[:, 1], indices
 
 
-def XGB(xtrain, xvalid, ytrain, yvalid, pre_x):
+def XGB(xtrain, xvalid, ytrain, yvalid, pre_x, use_gpu=True):
     print '----xgb-----'
 
     if not submit_flag:
@@ -154,6 +154,12 @@ def XGB(xtrain, xvalid, ytrain, yvalid, pre_x):
         'nthread': 16,
         'scale_pos_weight': weight
     }
+
+    if use_gpu:
+        param['gpu_id'] = 1
+        param['max_bin'] = 16
+        param['updater'] = 'grow_gpu'
+
     watchlist = [(dtrain, 'train'), (dvalid, 'val')]
     model = xgb.train(param, dtrain, num_boost_round=200, evals=watchlist)
 
@@ -214,7 +220,7 @@ def LR(xtrain, xvalid, ytrain, yvalid, pre_x):
     return pre_y
 
 
-def LGB(xtrain, xvalid, ytrain, yvalid, pre_x):
+def LGB(xtrain, xvalid, ytrain, yvalid, pre_x, use_gpu=True):
     if not submit_flag:
         print "lgb: split train and test"
         xtrain, xtest, ytrain, ytest = train_test_split(
@@ -233,7 +239,7 @@ def LGB(xtrain, xvalid, ytrain, yvalid, pre_x):
         'scale_pos_weight': weight,
         'max_depth': 6,
         'verbose': -1,
-        'num_threads': 16
+        'num_threads': 16,
     }
 
     #feature_name = ['feature_' + str(col) for col in range(num_feature)]
@@ -282,11 +288,14 @@ if __name__ == '__main__':
     # x_train, x_test, y_train, y_test, x_pre = feature_select(
     #     x_train, x_test, y_train, y_test, x_pre, rate=0.8)
 
-    posnum = train_y[train_y == 1].shape[0]
-    negnum = train_y[train_y == 0].shape[0]
-    print 'pos:', posnum, ' neg:', negnum
+    # posnum = train_y[train_y == 1].shape[0]
+    # negnum = train_y[train_y == 0].shape[0]
+    # print 'pos:', posnum, ' neg:', negnum
 
-    weight = float(posnum) / (posnum + negnum)
+    # weight = float(posnum) / (posnum + negnum)
+    # print 'weight:', weight
+
+    weight = 93262 / 3749528.0
     print 'weight:', weight
 
     # xgboost
