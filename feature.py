@@ -172,7 +172,7 @@ def get_hist_feature(hist_list, df_concat, with_count=True):
         if with_count:
             df_concat['cnt_' + vn] = np.zeros(df_concat.shape[0])
         # 第十七天使用当天的妆化率
-        for i in range(17, 31):
+        for i in range(17, 32):
             print i
             df_concat['key'] = df_concat[vn].astype('category').values.codes
             if i > 17:
@@ -200,7 +200,7 @@ def get_hist_feature(hist_list, df_concat, with_count=True):
                              'cvt_' + vn] = _sum.astype('float64') / __cnt
                 if with_count:
                     df_concat.ix[df_concat['clickTime_day'] == i, 'cnt_' + vn] = _cnt
-                    
+
     df_concat.drop(['key'], axis=1, inplace=True)
     df_concat[np.isnan(df_concat)] = 0
     # df_concat.to_csv('hist_feature.csv', index=False)
