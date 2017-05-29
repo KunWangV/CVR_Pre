@@ -264,7 +264,7 @@ def get_hist_feature(hist_list, df_concat, with_count=True):
             #         'label', 'key']].copy()
 
     df_concat.drop(['key'], axis=1, inplace=True)
-    df_concat[np.isnan(df_concat)] = 0
+    # df_concat[np.isnan(df_concat)] = 0
     # df_concat.to_csv('hist_feature.csv', index=False)
 
 
@@ -560,7 +560,7 @@ def get_tf_feature(with_ohe=True, save=True, needDF=False, modelType='LGBM', tes
         df_concate.instanceID.fillna(-1, inplace=True)
         df_train = (df_concate.ix[df_concate.instanceID==-1]).drop(
             ['instanceID'], axis=1)  # 重新赋值
-        df_test = df_concate.ix[df_concate.instanceID!=-1]  # 重新赋值
+        df_test = df_concate.ix[df_concate.instanceID>0]  # 重新赋值
         df_test.sort_values('instanceID', inplace=True) # 根据instanceID来判断，并且排序 确保正确
         if save:
             df_train.to_csv('train.csv', index=False)
