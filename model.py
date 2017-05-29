@@ -156,7 +156,7 @@ def XGB(xtrain, xvalid, ytrain, yvalid, pre_x, use_gpu=True):
     }
 
     if use_gpu:
-        param['gpu_id'] = 1
+        param['gpu_id'] = 0 
         param['max_bin'] = 16
         param['updater'] = 'grow_gpu'
 
@@ -300,10 +300,11 @@ if __name__ == '__main__':
 
     # xgboost
     # ypre = XGB(x_train, x_test, y_train, y_test, x_pre)
+    ypre =XGB(train_x, test_x, train_y, test_y, pre_x)
     # LR
     # ypre = LR(x_train, x_test, y_train, y_test, x_pre)
     # LGB
-    ypre = LGB(train_x, test_x, train_y, test_y, pre_x)
+    # ypre = LGB(train_x, test_x, train_y, test_y, pre_x)
 
     # 保存结果
     inst_id=inst_id.astype('int64')
