@@ -159,7 +159,6 @@ def to_LGBM(df_train, df_pre, test_days=2):
     LGBM_x['camgaignID'] = pd.Series(
         LGBM_x['camgaignID']).astype('category').values.codes
 
-    
     LGBM_x['clickTime_day_cvt_userID'] = pd.Series(LGBM_x['clickTime_day'].astype(
         str) + (LGBM_x['cvt_userID'] / 0.05).astype(str)).astype('category').values.codes
     LGBM_x['cvt_creativeID_cvt_positionID'] = LGBM_x['cvt_creativeID'] + \
@@ -176,12 +175,14 @@ def to_LGBM(df_train, df_pre, test_days=2):
         LGBM_x['cvt_creativeID']
     LGBM_x['cvt_positionID_cvt_positionID'] = LGBM_x['cvt_positionID'] + \
         LGBM_x['cvt_positionID']
-    LGBM_x['cnt_userID_cvt_userID'] = LGBM_x['cnt_userID'] * LGBM_x['cvt_userID']
+    LGBM_x['cnt_userID_cvt_userID'] = LGBM_x[
+        'cnt_userID'] * LGBM_x['cvt_userID']
     LGBM_x['cnt_userID_cvt_positionID'] = LGBM_x['cnt_userID'] * \
         LGBM_x['cvt_positionID']
     LGBM_x['cvt_camgaignID_cvt_userID'] = LGBM_x['cvt_camgaignID'] + \
         LGBM_x['cvt_userID']
-    LGBM_x['cnt_userID_cvt_userID'] = LGBM_x['cnt_userID'] * LGBM_x['cvt_userID']
+    LGBM_x['cnt_userID_cvt_userID'] = LGBM_x[
+        'cnt_userID'] * LGBM_x['cvt_userID']
     LGBM_x['clickTime_day_cvt_advertiserID'] = pd.Series(LGBM_x['clickTime_day'].astype(
         str) + (LGBM_x['cvt_advertiserID'] / 0.05).astype(str)).astype('category').values.codes
 
@@ -192,23 +193,23 @@ def to_LGBM(df_train, df_pre, test_days=2):
     LGBM_x['cnt_positionID_cvt_positionID'] = LGBM_x['cnt_positionID'] * \
         LGBM_x['cvt_positionID']
 
-    LGBM_x['cvt_userID_cvt_userID'] = LGBM_x['cvt_userID'] + LGBM_x['cvt_userID']
+    LGBM_x['cvt_userID_cvt_userID'] = LGBM_x[
+        'cvt_userID'] + LGBM_x['cvt_userID']
     LGBM_x['cnt_userID_cvt_creativeID'] = LGBM_x['cnt_userID'] * \
         LGBM_x['cvt_creativeID']
 
-
-    LGBM_x.instanceID.fillna(-1, inplace=True)
-    pre_x = LGBM_x.loc[LGBM_x['instanceID']>0].copy()
+    LGBM_x['instanceID'].fillna(-1, inplace=True)
+    pre_x = LGBM_x.loc[LGBM_x['instanceID'] > 0].copy()
     pre_x.sort_values('instanceID', inplace=True)
     inst_id = pre_x['instanceID'].copy().values
-    pre_x.drop(['instanceID'], axis=1,inplace=True)
+    pre_x.drop(['instanceID'], axis=1, inplace=True)
     print 'pre x columns: '
     print pre_x.columns
 
-    LGBM_x.drop(['instanceID'], axis=1,inplace=True)
+    LGBM_x.drop(['instanceID'], axis=1, inplace=True)
     train_x = LGBM_x.loc[LGBM_x['clickTime_day'] <= (30 - test_days), :].copy()
     test_x = LGBM_x.loc[(LGBM_x['clickTime_day'] > (30 - test_days))
-                       & (LGBM_x['clickTime_day'] <= 30), :].copy()
+                        & (LGBM_x['clickTime_day'] <= 30), :].copy()
     print 'pre_x.shape:'
     print pre_x.shape
 
@@ -251,7 +252,7 @@ def get_hist_feature(hist_list, df_concat, with_count=True):
                 cnt = df_grp.groupby('key').aggregate(np.size)
                 sum = df_grp.groupby('key').aggregate(np.sum)
                 v_codes = df_concat.loc[df_concat['clickTime_day']
-                                       == i, 'key'].values
+                                        == i, 'key'].values
                 if len(list(set(v_codes).intersection(set(cnt.index)))) != 0:
                     _cnt = cnt.loc[v_codes, :].values
                     _sum = sum.loc[v_codes, :].values
@@ -260,10 +261,10 @@ def get_hist_feature(hist_list, df_concat, with_count=True):
                     _cnt[np.isnan(_cnt)] = 0
                     _sum[np.isnan(_sum)] = 0
                     df_concat.loc[df_concat['clickTime_day'] == i,
-                                 'cvt_' + vn] = _sum.astype('float64') / __cnt
+                                  'cvt_' + vn] = _sum.astype('float64') / __cnt
                     if with_count:
                         df_concat.loc[df_concat['clickTime_day']
-                                     == i, 'cnt_' + vn] = _cnt
+                                      == i, 'cnt_' + vn] = _cnt
             # else:
             #     df_grp = df_concat.loc[df_concat['clickTime_day'] == i, [
             #         'label', 'key']].copy()
@@ -561,12 +562,13 @@ def get_tf_feature(with_ohe=True, save=True, needDF=False, modelType='LGBM', tes
 
         for column in df_concate.columns:
             print column, df_concate[column].unique().shape, df_concate[column].min(), df_concate[column].max()
-        
+
         df_concate.instanceID.fillna(-1, inplace=True)
-        df_train = (df_concate.loc[df_concate.instanceID<=0]).drop(
+        df_train = (df_concate.loc[df_concate.instanceID <= 0]).drop(
             ['instanceID'], axis=1).copy()  # 重新赋值
-        df_test = (df_concate.loc[df_concate.instanceID>0]).copy()  # 重新赋值
-        df_test.sort_values('instanceID', inplace=True) # 根据instanceID来判断，并且排序 确保正确
+        df_test = (df_concate.loc[df_concate.instanceID > 0]).copy()  # 重新赋值
+        # 根据instanceID来判断，并且排序 确保正确
+        df_test.sort_values('instanceID', inplace=True)
         if save:
             df_train.to_csv('train.csv', index=False)
             df_test.to_csv('test.csv', index=False)
