@@ -129,10 +129,8 @@ def to_LGBM(df_train, df_pre, test_days=2):
                     'sitesetID'
                     ]
 
-    inst_id = df_pre['instanceID'].values
-    df_pre.drop(['instanceID'], axis=1, inplace=True)
     LGBM_x = pd.concat([df_train, df_pre], axis=0)
-    LGBM_x = LGBM_x.ix[:, feature_list]
+    LGBM_x = LGBM_x.loc[:, feature_list]
     LGBM_x.cnt_userID = LGBM_x.cnt_userID / 10000
     LGBM_x.cnt_connectionType = LGBM_x.cnt_connectionType / 10000
     LGBM_x.cnt_positionID = LGBM_x.cnt_positionID / 10000
@@ -198,11 +196,18 @@ def to_LGBM(df_train, df_pre, test_days=2):
     LGBM_x['cnt_userID_cvt_creativeID'] = LGBM_x['cnt_userID'] * \
         LGBM_x['cvt_creativeID']
 
-    pre_x = LGBM_x.iloc[-df_pre.shape[0]:].copy()
+
+    LGBM_x.instanceID.fillna(-1, inplace=True)
+    pre_x = LGBM_x.loc[LGBM_x['instanceID']>0].copy()
+    pre_x.sort_values('instanceID', inplace=True)
+    inst_id = pre_x['instanceID'].copy().values
+    pre_x.drop(['instanceID'], axis=1,inplace=True)
     print 'pre x columns: '
     print pre_x.columns
-    train_x = LGBM_x.ix[LGBM_x['clickTime_day'] <= (30 - test_days), :].copy()
-    test_x = LGBM_x.ix[(LGBM_x['clickTime_day'] > (30 - test_days))
+
+    LGBM_x.drop(['instanceID'], axis=1,inplace=True)
+    train_x = LGBM_x.loc[LGBM_x['clickTime_day'] <= (30 - test_days), :].copy()
+    test_x = LGBM_x.loc[(LGBM_x['clickTime_day'] > (30 - test_days))
                        & (LGBM_x['clickTime_day'] <= 30), :].copy()
     print 'pre_x.shape:'
     print pre_x.shape
@@ -238,14 +243,14 @@ def get_hist_feature(hist_list, df_concat, with_count=True):
             print i
             df_concat['key'] = df_concat[vn].astype('category').values.codes
             if i > 17:
-                df_grp_ = df_concat.ix[df_concat['clickTime_day'] < i, [
+                df_grp_ = df_concat.loc[df_concat['clickTime_day'] < i, [
                     'label', 'key', 'conversionTime']].copy()
                 df_grp_['conversionTime'].fillna(0, inplace=True)
-                df_grp = df_grp_.ix[df_grp_['conversionTime'] / 10000 < i, [
+                df_grp = df_grp_.loc[df_grp_['conversionTime'] / 10000 < i, [
                     'label', 'key']].copy()
                 cnt = df_grp.groupby('key').aggregate(np.size)
                 sum = df_grp.groupby('key').aggregate(np.sum)
-                v_codes = df_concat.ix[df_concat['clickTime_day']
+                v_codes = df_concat.loc[df_concat['clickTime_day']
                                        == i, 'key'].values
                 if len(list(set(v_codes).intersection(set(cnt.index)))) != 0:
                     _cnt = cnt.loc[v_codes, :].values
@@ -254,13 +259,13 @@ def get_hist_feature(hist_list, df_concat, with_count=True):
                     __cnt[np.isnan(__cnt)] = 1
                     _cnt[np.isnan(_cnt)] = 0
                     _sum[np.isnan(_sum)] = 0
-                    df_concat.ix[df_concat['clickTime_day'] == i,
+                    df_concat.loc[df_concat['clickTime_day'] == i,
                                  'cvt_' + vn] = _sum.astype('float64') / __cnt
                     if with_count:
-                        df_concat.ix[df_concat['clickTime_day']
+                        df_concat.loc[df_concat['clickTime_day']
                                      == i, 'cnt_' + vn] = _cnt
             # else:
-            #     df_grp = df_concat.ix[df_concat['clickTime_day'] == i, [
+            #     df_grp = df_concat.loc[df_concat['clickTime_day'] == i, [
             #         'label', 'key']].copy()
 
     df_concat.drop(['key'], axis=1, inplace=True)
@@ -558,9 +563,9 @@ def get_tf_feature(with_ohe=True, save=True, needDF=False, modelType='LGBM', tes
             print column, df_concate[column].unique().shape, df_concate[column].min(), df_concate[column].max()
         
         df_concate.instanceID.fillna(-1, inplace=True)
-        df_train = (df_concate.ix[df_concate.instanceID==-1]).drop(
-            ['instanceID'], axis=1)  # 重新赋值
-        df_test = df_concate.ix[df_concate.instanceID>0]  # 重新赋值
+        df_train = (df_concate.loc[df_concate.instanceID<=0]).drop(
+            ['instanceID'], axis=1).copy()  # 重新赋值
+        df_test = (df_concate.loc[df_concate.instanceID>0]).copy()  # 重新赋值
         df_test.sort_values('instanceID', inplace=True) # 根据instanceID来判断，并且排序 确保正确
         if save:
             df_train.to_csv('train.csv', index=False)
@@ -667,8 +672,8 @@ def split_train_test_by_day(x, y, test_day_size=1):
     :param test_day_size: 最后几天作为test
     :return:
     """
-    train_x = x.ix[x['clickTime_day'] <= 30 - test_day_size, :].copy()
-    test_x = x.ix[x['clickTime_day'] > 30 - test_day_size, :].copy()
+    train_x = x.loc[x['clickTime_day'] <= 30 - test_day_size, :].copy()
+    test_x = x.loc[x['clickTime_day'] > 30 - test_day_size, :].copy()
     return train_x, test_x
 
 
