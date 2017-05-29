@@ -142,6 +142,7 @@ def to_LGBM(df_train, df_pre, test_days=2):
     LGBM_x.cnt_appCategory = LGBM_x.cnt_appCategory / 10000
     LGBM_x.cnt_adID = LGBM_x.cnt_adID / 10000
     LGBM_x.cnt_creativeID = LGBM_x.cnt_creativeID / 10000
+
     LGBM_x['action_cate'] = pd.Series(
         LGBM_x['action_cate']).astype('category').values.codes
     LGBM_x['appID'] = pd.Series(
@@ -159,6 +160,8 @@ def to_LGBM(df_train, df_pre, test_days=2):
         LGBM_x['creativeID']).astype('category').values.codes
     LGBM_x['camgaignID'] = pd.Series(
         LGBM_x['camgaignID']).astype('category').values.codes
+
+    
     LGBM_x['clickTime_day_cvt_userID'] = pd.Series(LGBM_x['clickTime_day'].astype(
         str) + (LGBM_x['cvt_userID'] / 0.05).astype(str)).astype('category').values.codes
     LGBM_x['cvt_creativeID_cvt_positionID'] = LGBM_x['cvt_creativeID'] + \
@@ -237,7 +240,7 @@ def get_hist_feature(hist_list, df_concat, with_count=True):
             if i > 17:
                 df_grp_ = df_concat.ix[df_concat['clickTime_day'] < i, [
                     'label', 'key', 'conversionTime']].copy()
-                df_grp_['conversionTime'].fillna(0)
+                df_grp_['conversionTime'].fillna(0, inplace=True)
                 df_grp = df_grp_.ix[df_grp_['conversionTime'] / 10000 < i, [
                     'label', 'key']].copy()
                 cnt = df_grp.groupby('key').aggregate(np.size)
@@ -472,11 +475,12 @@ def get_feature(for_train=True):
 
     # 修正已安装数据
     df_result['tt_is_installed'] = (df_result['inst_is_installed'] > 0) \
-        & (df_result['action_installed'] > 0)  # clickTime之前是否已经安装过
+        | (df_result['action_installed'] > 0)  # clickTime之前是否已经安装过
 
     df_result['tt_is_installed'] = df_result['tt_is_installed'].astype(int)
     df_result['tt_cnt_appcate'] = df_result['action_cate'] + \
         df_result['inst_cnt_appcate']  # clickTime之前该app同类应用安装次数
+    df_result['tt_cnt_appcate'] = df_result['tt_cnt_appcate'].astype(int)
 
     # context
     df_result['clickTime_day'] = pd.Series(
@@ -488,19 +492,6 @@ def get_feature(for_train=True):
 
     df_result['clickTime_week'] = pd.Series(
         np.floor(df_result['clickTime'].astype(int) / 10000) % 7).astype(int)
-
-    # history pcvr 没考虑时间
-    hist_list = [
-        'userID',
-        'creativeID',
-        'positionID',
-        'adID',
-        'camgaignID',
-        'advertiserID',
-        'appID',
-    ]
-
-    # [17-30] 第一天使用均值替代或使用后一天替代 注意：后4-5天的转化率有些不准(广告商可能没有反馈过来)
 
     # remove unrelated
     to_drop += ['clickTime', 'index', ]
@@ -535,7 +526,7 @@ def get_tf_feature(with_ohe=True, save=True, needDF=False, modelType='LGBM', tes
         print '重新生成特徵'
         df_train, not_ohe = get_feature(True)
         df_test, not_ohe = get_feature(False)
-        shuffle(df_train)
+        # shuffle(df_train)
         df_train.fillna(0, inplace=True)
         df_test.fillna(0, inplace=True)
 
@@ -562,11 +553,15 @@ def get_tf_feature(with_ohe=True, save=True, needDF=False, modelType='LGBM', tes
                           'telecomsOperator',
                           'connectionType',
                           'clickTime_week'], df_concat=df_concate)
+
         for column in df_concate.columns:
             print column, df_concate[column].unique().shape, df_concate[column].min(), df_concate[column].max()
-        df_train = (df_concate.iloc[:df_train.shape[0], :]).drop(
+        
+        df_concate.instanceID.fillna(-1, inplace=True)
+        df_train = (df_concate.ix[df_concate.instanceID==-1]).drop(
             ['instanceID'], axis=1)  # 重新赋值
-        df_test = df_concate.iloc[-df_test.shape[0]:, :]  # 重新赋值
+        df_test = df_concate.ix[df_concate.instanceID!=-1]  # 重新赋值
+        df_test.sort_values('instanceID', inplace=True) # 根据instanceID来判断，并且排序 确保正确
         if save:
             df_train.to_csv('train.csv', index=False)
             df_test.to_csv('test.csv', index=False)
