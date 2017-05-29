@@ -18,6 +18,7 @@ import pickle
 #from tqdm import tqdm
 import os
 
+
 def to_LGBM(df_train, df_pre, test_days=2):
     """
     cvt_positionID (5454,) 0.0 1.0
@@ -63,6 +64,25 @@ def to_LGBM(df_train, df_pre, test_days=2):
     cvt_appCategory (149,) 0.0 0.702702702703
     sitesetID (3,) 0 2
 
+    clickTime_day|cvt_userID
+    cvt_creativeID|cvt_positionID
+    cvt_creativeID|cvt_userID
+    cvt_connectionType|cvt_positionID
+    cvt_camgaignID|cvt_positionID
+    cvt_positionID|cvt_userID
+    cvt_camgaignID|cvt_creativeID
+    cvt_positionID|cvt_positionID
+    cnt_userID|cvt_userID
+    cnt_userID|cvt_positionID
+    cvt_camgaignID|cvt_userID
+    clickTime_day|cvt_advertiserID
+    cvt_creativeID|cvt_creativeID
+    cnt_connectionType|cvt_userID
+    cvt_advertiserID|cvt_connectionType
+    cvt_positionID|cvt_sitesetID
+    cnt_positionID|cvt_positionID
+    cvt_userID|cvt_userID
+    cnt_userID|cvt_creativeID
     """
     feature_list = ['label',
                     'cvt_positionID',
@@ -91,22 +111,22 @@ def to_LGBM(df_train, df_pre, test_days=2):
                     'cnt_appCategory',
                     'advertiserID',
                     'positionType'
-                    # 'cvt_appID',
-                    # 'cnt_adID',
-                    # 'positionID',
-                    # 'hometown_p',
-                    # 'action_installed',
-                    # 'creativeID',
-                    # 'cnt_creativeID',
-                    # 'cvt_appPlatform',
-                    # 'clickTime_hour',
-                    # 'cvt_clickTime_week',
-                    # 'camgaignID',
-                    # 'action_cate_recent',
-                    # 'cvt_education',
-                    # 'inst_is_installed',
-                    # 'cvt_appCategory',
-                    # 'sitesetID'
+                    'cvt_appID',
+                    'cnt_adID',
+                    'positionID',
+                    'hometown_p',
+                    'action_installed',
+                    'creativeID',
+                    'cnt_creativeID',
+                    'cvt_appPlatform',
+                    'clickTime_hour',
+                    'cvt_clickTime_week',
+                    'camgaignID',
+                    'action_cate_recent',
+                    'cvt_education',
+                    'inst_is_installed',
+                    'cvt_appCategory',
+                    'sitesetID'
                     ]
 
     inst_id = df_pre['instanceID'].values
@@ -120,8 +140,8 @@ def to_LGBM(df_train, df_pre, test_days=2):
     LGBM_x.cnt_advertiserID = LGBM_x.cnt_advertiserID / 10000
     LGBM_x.cnt_camgaignID = LGBM_x.cnt_camgaignID / 10000
     LGBM_x.cnt_appCategory = LGBM_x.cnt_appCategory / 10000
-    #LGBM_x.cnt_adID = LGBM_x.cnt_adID / 10000
-    # LGBM_x.cnt_creativeID = LGBM_x.cnt_creativeID / 10000
+    LGBM_x.cnt_adID = LGBM_x.cnt_adID / 10000
+    LGBM_x.cnt_creativeID = LGBM_x.cnt_creativeID / 10000
     LGBM_x['action_cate'] = pd.Series(
         LGBM_x['action_cate']).astype('category').values.codes
     LGBM_x['appID'] = pd.Series(
@@ -133,18 +153,55 @@ def to_LGBM(df_train, df_pre, test_days=2):
         LGBM_x['inst_app_installed']).astype('category').values.codes
     LGBM_x['advertiserID'] = pd.Series(
         LGBM_x['advertiserID']).astype('category').values.codes
-    # LGBM_x['positionID'] = pd.Series(
-    #     LGBM_x['positionID']).astype('category').values.codes
-    # LGBM_x['creativeID'] = pd.Series(
-    #     LGBM_x['creativeID']).astype('category').values.codes
-    # LGBM_x['camgaignID'] = pd.Series(
-    #     LGBM_x['camgaignID']).astype('category').values.codes
+    LGBM_x['positionID'] = pd.Series(
+        LGBM_x['positionID']).astype('category').values.codes
+    LGBM_x['creativeID'] = pd.Series(
+        LGBM_x['creativeID']).astype('category').values.codes
+    LGBM_x['camgaignID'] = pd.Series(
+        LGBM_x['camgaignID']).astype('category').values.codes
+    LGBM_x['clickTime_day_cvt_userID'] = pd.Series(LGBM_x['clickTime_day'].astype(
+        str) + (LGBM_x['cvt_userID'] / 0.05).astype(str)).astype('category').values.codes
+    LGBM_x['cvt_creativeID_cvt_positionID'] = LGBM_x['cvt_creativeID'] + \
+        LGBM_x['cvt_positionID']
+    LGBM_x['cvt_creativeID_cvt_userID'] = LGBM_x['cvt_creativeID'] + \
+        LGBM_x['cvt_userID']
+    LGBM_x['cvt_connectionType_cvt_positionID'] = LGBM_x['cvt_connectionType'] + \
+        LGBM_x['cvt_positionID']
+    LGBM_x['cvt_camgaignID_cvt_positionID'] = LGBM_x['cvt_camgaignID'] + \
+        LGBM_x['cvt_positionID']
+    LGBM_x['cvt_positionID_cvt_userID'] = LGBM_x['cvt_positionID'] + \
+        LGBM_x['cvt_userID']
+    LGBM_x['cvt_camgaignID_cvt_creativeID'] = LGBM_x['cvt_camgaignID'] + \
+        LGBM_x['cvt_creativeID']
+    LGBM_x['cvt_positionID_cvt_positionID'] = LGBM_x['cvt_positionID'] + \
+        LGBM_x['cvt_positionID']
+    LGBM_x['cnt_userID_cvt_userID'] = LGBM_x['cnt_userID'] * LGBM_x['cvt_userID']
+    LGBM_x['cnt_userID_cvt_positionID'] = LGBM_x['cnt_userID'] * \
+        LGBM_x['cvt_positionID']
+    LGBM_x['cvt_camgaignID_cvt_userID'] = LGBM_x['cvt_camgaignID'] + \
+        LGBM_x['cvt_userID']
+    LGBM_x['cnt_userID_cvt_userID'] = LGBM_x['cnt_userID'] * LGBM_x['cvt_userID']
+    LGBM_x['clickTime_day_cvt_advertiserID'] = pd.Series(LGBM_x['clickTime_day'].astype(
+        str) + (LGBM_x['cvt_advertiserID'] / 0.05).astype(str)).astype('category').values.codes
+
+    LGBM_x['cvt_advertiserID_cvt_connectionType'] = LGBM_x['cvt_advertiserID'] + \
+        LGBM_x['cvt_connectionType']
+    LGBM_x['cvt_positionID_cvt_sitesetID'] = LGBM_x['cvt_positionID'] + \
+        LGBM_x['cvt_sitesetID']
+    LGBM_x['cnt_positionID_cvt_positionID'] = LGBM_x['cnt_positionID'] * \
+        LGBM_x['cvt_positionID']
+
+    LGBM_x['cvt_userID_cvt_userID'] = LGBM_x['cvt_userID'] + LGBM_x['cvt_userID']
+    LGBM_x['cnt_userID_cvt_creativeID'] = LGBM_x['cnt_userID'] * \
+        LGBM_x['cvt_creativeID']
+
     pre_x = LGBM_x.iloc[-df_pre.shape[0]:].copy()
     print 'pre x columns: '
     print pre_x.columns
     train_x = LGBM_x.ix[LGBM_x['clickTime_day'] <= (30 - test_days), :].copy()
-    test_x = LGBM_x.ix[(LGBM_x['clickTime_day'] > (30 -test_days)) & (LGBM_x['clickTime_day'] <= 30), :].copy()
-    print 'pre_x.shape:' 
+    test_x = LGBM_x.ix[(LGBM_x['clickTime_day'] > (30 - test_days))
+                       & (LGBM_x['clickTime_day'] <= 30), :].copy()
+    print 'pre_x.shape:'
     print pre_x.shape
 
     print train_x.columns
@@ -178,30 +235,30 @@ def get_hist_feature(hist_list, df_concat, with_count=True):
             print i
             df_concat['key'] = df_concat[vn].astype('category').values.codes
             if i > 17:
-                df_grp = df_concat.ix[df_concat['clickTime_day'] < i, [
+                df_grp_ = df_concat.ix[df_concat['clickTime_day'] < i, [
+                    'label', 'key', 'conversionTime']].copy()
+                df_grp_['conversionTime'].fillna(0)
+                df_grp = df_grp_.ix[df_grp_['conversionTime'] / 10000 < i, [
                     'label', 'key']].copy()
-            else:
-                df_grp = df_concat.ix[df_concat['clickTime_day'] == i, [
-                    'label', 'key']].copy()
-
-            cnt = df_grp.groupby('key').aggregate(np.size)
-            sum = df_grp.groupby('key').aggregate(np.sum)
-            v_codes = df_concat.ix[df_concat['clickTime_day']
-                                   == i, 'key'].values
-            if len(list(set(v_codes).intersection(set(cnt.index)))) != 0:
-                _cnt = cnt.loc[v_codes, :].values
-                _sum = sum.loc[v_codes, :].values
-
-                __cnt = _cnt.copy()
-                __cnt[np.isnan(__cnt)] = 1
-
-                _cnt[np.isnan(_cnt)] = 0
-                _sum[np.isnan(_sum)] = 0
-
-                df_concat.ix[df_concat['clickTime_day'] == i,
-                             'cvt_' + vn] = _sum.astype('float64') / __cnt
-                if with_count:
-                    df_concat.ix[df_concat['clickTime_day'] == i, 'cnt_' + vn] = _cnt
+                cnt = df_grp.groupby('key').aggregate(np.size)
+                sum = df_grp.groupby('key').aggregate(np.sum)
+                v_codes = df_concat.ix[df_concat['clickTime_day']
+                                       == i, 'key'].values
+                if len(list(set(v_codes).intersection(set(cnt.index)))) != 0:
+                    _cnt = cnt.loc[v_codes, :].values
+                    _sum = sum.loc[v_codes, :].values
+                    __cnt = _cnt.copy()
+                    __cnt[np.isnan(__cnt)] = 1
+                    _cnt[np.isnan(_cnt)] = 0
+                    _sum[np.isnan(_sum)] = 0
+                    df_concat.ix[df_concat['clickTime_day'] == i,
+                                 'cvt_' + vn] = _sum.astype('float64') / __cnt
+                    if with_count:
+                        df_concat.ix[df_concat['clickTime_day']
+                                     == i, 'cnt_' + vn] = _cnt
+            # else:
+            #     df_grp = df_concat.ix[df_concat['clickTime_day'] == i, [
+            #         'label', 'key']].copy()
 
     df_concat.drop(['key'], axis=1, inplace=True)
     df_concat[np.isnan(df_concat)] = 0
@@ -464,8 +521,8 @@ def get_feature(for_train=True):
         'clickTime_minute',
     ]
 
-    if for_train:
-        to_drop += ['conversionTime']
+    # if for_train:
+    #     to_drop += ['conversionTime']
 
     df_result.drop(to_drop, axis=1, inplace=True)
     print df_result.columns
@@ -473,7 +530,7 @@ def get_feature(for_train=True):
     return df_result, not_ohe
 
 
-def get_tf_feature(with_ohe=True, save=True, needDF=False, modelType='LGBM',test_days=2):
+def get_tf_feature(with_ohe=True, save=True, needDF=False, modelType='LGBM', test_days=2):
     if not os.path.exists('train.csv') or not os.path.exists('test.csv'):
         print '重新生成特徵'
         df_train, not_ohe = get_feature(True)
@@ -553,7 +610,7 @@ def to_ffm():
     pass
 
 
-def load_feature(from_file=True, with_ohe=True, modelType='LGBM',test_days=2):
+def load_feature(from_file=True, with_ohe=True, modelType='LGBM', test_days=2):
     """
     从文件加载或者。。。
     """
@@ -562,7 +619,7 @@ def load_feature(from_file=True, with_ohe=True, modelType='LGBM',test_days=2):
         objs = [pickle.load(open(f, 'rb')) for f in filenames]
         return objs
     else:
-        return get_tf_feature(with_ohe=with_ohe, modelType=modelType,test_days=test_days)
+        return get_tf_feature(with_ohe=with_ohe, modelType=modelType, test_days=test_days)
 
 
 def split_train_test(x, y, test_size=0.2, stratify=True, with_df=False):
