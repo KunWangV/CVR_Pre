@@ -133,12 +133,6 @@ def RF(x, y, pred_x):
 
 def XGB(xtrain, xvalid, ytrain, yvalid, pre_x, use_gpu=True):
     print '----xgb-----'
-
-    if not submit_flag:
-        xtrain, xtest, ytrain, ytest = train_test_split(
-            xtrain, ytrain, test_size=0.2, random_state=0, stratify=y)
-        dtest = xgb.DMatrix(xtest, label=ytest, missing=-1)
-
     dtrain = xgb.DMatrix(xtrain, label=ytrain, missing=-1)
     dvalid = xgb.DMatrix(xvalid, label=yvalid, missing=-1)
 
@@ -272,9 +266,10 @@ def LGB(xtrain, xvalid, ytrain, yvalid, pre_x, use_gpu=True):
 if __name__ == '__main__':
 
     # 导入数据
-    train_x, train_y, test_x, test_y, pre_x, inst_id = load_feature(from_file=False, with_ohe=False,modelType='LGBM',test_days=2)
+    train_x, train_y, test_x, test_y, pre_x, inst_id = load_feature(
+        from_file=False, with_ohe=False, modelType='LGBM', test_days=2)
     # 数据分割为测试集和训练集
-    #x_train, x_test, y_train, y_test = split_train_test_by_day(x, y, test_day_size=2)  # test_size测试集合所占比例
+    # x_train, x_test, y_train, y_test = split_train_test_by_day(x, y, test_day_size=2)  # test_size测试集合所占比例
     # 使用XGBoost构造新特征
     # x_train, x_test, y_train, y_test, x_pre = NewFeatrue(
     #     x_train, x_test, y_train, y_test, x_pre)
@@ -299,14 +294,14 @@ if __name__ == '__main__':
     print 'weight:', weight
 
     # xgboost
-    # ypre = XGB(x_train, x_test, y_train, y_test, x_pre)
+    ypre = XGB(train_x, test_x, train_y, test_y, pre_x)
     # LR
     # ypre = LR(x_train, x_test, y_train, y_test, x_pre)
     # LGB
-    ypre = LGB(train_x, test_x, train_y, test_y, pre_x)
+    # ypre = LGB(train_x, test_x, train_y, test_y, pre_x)
 
     # 保存结果
-    inst_id=inst_id.astype('int64')
+    inst_id = inst_id.astype('int64')
     save_pred(ypre, inst_id)
     # ypre = XGB(x, y, xpre)
 

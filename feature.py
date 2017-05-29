@@ -160,7 +160,7 @@ def to_LGBM(df_train, df_pre, test_days=2):
     LGBM_x['camgaignID'] = pd.Series(
         LGBM_x['camgaignID']).astype('category').values.codes
     LGBM_x['clickTime_day_cvt_userID'] = pd.Series(LGBM_x['clickTime_day'].astype(
-        'string') + (LGBM_x['cvt_userID'] / 0.05).astype('string')).astype('category').values.codes
+        str) + (LGBM_x['cvt_userID'] / 0.05).astype(str)).astype('category').values.codes
     LGBM_x['cvt_creativeID_cvt_positionID'] = LGBM_x['cvt_creativeID'] + \
         LGBM_x['cvt_positionID']
     LGBM_x['cvt_creativeID_cvt_userID'] = LGBM_x['cvt_creativeID'] + \
@@ -182,7 +182,7 @@ def to_LGBM(df_train, df_pre, test_days=2):
         LGBM_x['cvt_userID']
     LGBM_x['cnt_userID_cvt_userID'] = LGBM_x['cnt_userID'] * LGBM_x['cvt_userID']
     LGBM_x['clickTime_day_cvt_advertiserID'] = pd.Series(LGBM_x['clickTime_day'].astype(
-        'string') + (LGBM_x['cvt_advertiserID'] / 0.05).astype('string')).astype('category').values.codes
+        str) + (LGBM_x['cvt_advertiserID'] / 0.05).astype(str)).astype('category').values.codes
 
     LGBM_x['cvt_advertiserID_cvt_connectionType'] = LGBM_x['cvt_advertiserID'] + \
         LGBM_x['cvt_connectionType']
