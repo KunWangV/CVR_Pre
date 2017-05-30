@@ -126,7 +126,8 @@ def to_LGBM(df_train, df_pre, test_days=2):
                     'cvt_education',
                     'inst_is_installed',
                     'cvt_appCategory',
-                    'sitesetID'
+                    'sitesetID',
+                    'instanceID',
                     ]
 
     LGBM_x = pd.concat([df_train, df_pre], axis=0)
@@ -581,6 +582,7 @@ def get_tf_feature(with_ohe=True, save=True, needDF=False, modelType='LGBM', tes
         return df_train, df_test
 
     if modelType == 'LGBM':
+        print df_test.columns
         train_x, train_y, test_x, test_y, pre_x, inst_id = to_LGBM(
             df_train, df_test, test_days=test_days)
 
