@@ -3,6 +3,7 @@
 
 # from pyspark.sql import SparkSession
 import pandas as pd
+import numpy as np
 
 FILE_AD = r'../ad.csv'
 FILE_APP_CATEGORIES = r'../app_categories.csv'
@@ -13,6 +14,7 @@ FILE_TRAIN = r'../train.csv'
 FILE_USER_APP_ACTIONS = r'../user_app_actions.csv'
 FILE_USER = r'../user.csv'
 FILE_USER_INSTALLEDAPPS = r'../user_installedapps.csv'
+
 
 # sess = SparkSession.builder.appName('tencent') \
 #     .config('spark.executor.memory', '1024m') \
@@ -29,6 +31,16 @@ FILE_USER_INSTALLEDAPPS = r'../user_installedapps.csv'
 
 def read_as_pandas(filename):
     return pd.read_csv(filename)
+
+
+def to_sparse_pd(m):
+    """
+    sparse matrix to sparse pandas
+    :param m:
+    :return:
+    """
+    return pd.SparseDataFrame([pd.SparseSeries(m[i].toarray().ravel())
+                               for i in np.arange(m.shape[0])])
 
 #
 # def load_ad():
@@ -73,4 +85,3 @@ def read_as_pandas(filename):
 #     mm = ss.sql("select adID from ad")
 #     print mm.toPandas()
 #     print read_as_pandas(FILE_AD).head(5)
-    

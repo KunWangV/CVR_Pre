@@ -25,151 +25,18 @@ from data import *
 from feature import *
 from to_FFM import *
 from to_LR import *
-from to_LGB import *
+from to_LGB_direct import *
 import os
 
 submit_flag = True
-
-feature_list=[
-        'pre_cnt_clickTime_week',
-        'pre_cvt_clickTime_week',
-        'cnt_creativeID',
-        'cvt_clickTime_week',
-        'appID',
-        'pre_cnt_creativeID',
-        'haveBaby',
-        'userID',
-        'pre_cnt_residence_c',
-        'pre_cnt_marriageStatus',
-        'cnt_clickTime_week',
-        'residence_p',
-        'cvt_appPlatform',
-        'clickTime_minute',
-        'cnt_adID',
-        'cnt_haveBaby',
-        'tt_is_installed',
-        'marriageStatus',
-        'pre_cnt_appPlatform',
-        'cnt_camgaignID',
-        'inst_is_installed',
-        'cnt_residence_c',
-        'appPlatform',
-        'pre_cnt_adID',
-        'cnt_gender',
-        'cnt_marriageStatus',
-        'pre_cvt_appPlatform',
-        'cnt_appPlatform',
-        'user_cri_day_click_cnt',
-        'camgaignID',
-        'pre_cnt_camgaignID',
-        'is_rpt_first_click',
-        'action_installed',
-        'clickTime_hour',
-        'gender',
-        'clickTime_week',
-        'age',
-        'residence_c',
-        'cnt_residence_p',
-        'cvt_marriageStatus',
-        'pre_cnt_residence_p',
-        'pre_cnt_haveBaby',
-        'cri_uuser_click_cnt',
-        'cri_day_click_cnt',
-        'pre_cvt_marriageStatus',
-        'cnt_education',
-        'pre_cnt_education',
-        'hometown_p',
-        'telecomsOperator',
-        'pre_cvt_residence_c',
-        'cvt_residence_c',
-        'education',
-        'hometown_c',
-        'adID',
-        'pre_cnt_gender',
-        'inst_app_installed',
-        'cnt_hometown_c',
-        'cnt_hometown_p',
-        'cnt_telecomsOperator',
-        'rpt_click_cnt',
-        'pre_cvt_haveBaby',
-        'creativeID',
-        'cvt_haveBaby',
-        'inst_cate_percent',
-        'pre_cnt_hometown_c',
-        'pre_cnt_hometown_p',
-        'pre_cvt_hometown_c',
-        'pre_cvt_education',
-        'cvt_hometown_c',
-        'cvt_education',
-        'pre_cnt_telecomsOperator',
-        'inst_cnt_appcate',
-        'inst_cnt_installed',
-        'pre_cvt_gender',
-        'pre_cvt_residence_p',
-        'cnt_advertiserID',
-        'cnt_appID',
-        'cvt_gender',
-        'positionID',
-        'cvt_residence_p',
-        'cnt_appCategory',
-        'action_cate_recent',
-        'cnt_connectionType',
-        'pre_cvt_telecomsOperator',
-        'cnt_positionType',
-        'cvt_telecomsOperator',
-        'pre_cvt_hometown_p',
-        'pre_cnt_userID',
-        'cvt_hometown_p',
-        'pre_cnt_advertiserID',
-        'pre_cnt_appID',
-        'pre_cnt_appCategory',
-        'is_rpt_last_click',
-        'tt_cnt_appcate',
-        'action_cate',
-        'user_day_click_cnt',
-        'advertiserID',
-        'cnt_sitesetID',
-        'cnt_userID',
-        'pre_cnt_positionType',
-        'connectionType',
-        'appCategory',
-        'pre_cnt_connectionType',
-        'cnt_positionID',
-        'pre_cvt_connectionType',
-        'cvt_connectionType',
-        'positionType',
-        'pre_cnt_sitesetID',
-        'pre_cnt_positionID',
-        'sitesetID',
-        'pre_cvt_sitesetID',
-        'cvt_sitesetID',
-        'pre_cvt_positionType',
-        'cvt_positionType',
-        'pre_cvt_positionID',
-        'cvt_appCategory',
-        'pre_cvt_appCategory',
-        'cvt_positionID',
-        'cvt_appID',
-        'pre_cvt_appID',
-        'pre_cvt_advertiserID',
-        'cvt_advertiserID',
-        'pre_cvt_adID',
-        'pre_cvt_creativeID',
-        'cvt_adID',
-        'cvt_creativeID',
-        'pre_cvt_camgaignID',
-        'cvt_camgaignID',
-        'cvt_userID',
-        'pre_cvt_userID',
-]
 
 
 def logloss(act, pred):
     epsilon = 1e-15
     pred = sp.maximum(epsilon, pred)
     pred = sp.minimum(1 - epsilon, pred)
-    ll = sum(act * sp.log(pred) + sp.subtract(1, act) * sp.log(
-        sp.subtract(1, pred)))
+    ll = sum(act * sp.log(pred) +
+             sp.subtract(1, act) * sp.log(sp.subtract(1, pred)))
     ll = ll * -1.0 / len(act)
     print '-------------logloss-----------', ll
     return ll
@@ -266,9 +133,7 @@ def RF(train_x, train_y, test_x, test_y, pre_x):
     return pred[:, 1], indices
 
 
-
-
-def XGB(xtrain, xvalid, ytrain, yvalid, pre_x, use_gpu=False):
+def XGB(xtrain, xvalid, ytrain, yvalid, pre_x, weight=1, use_gpu=False):
     print '----xgb-----'
     dtrain = xgb.DMatrix(xtrain, label=ytrain, missing=-1)
     dvalid = xgb.DMatrix(xvalid, label=yvalid, missing=-1)
@@ -278,7 +143,7 @@ def XGB(xtrain, xvalid, ytrain, yvalid, pre_x, use_gpu=False):
         'booster': 'gbtree',
         'objective': 'binary:logistic',
         'early_stopping_rounds': 100,
-        'eval_metric': 'error',
+        'eval_metric': 'logloss',
         'max_depth': 6,
         'silent': 1,
         'eta': 0.05,
@@ -313,14 +178,13 @@ def deep_and_wide(X, y):
     pass
 
 
-def save_pred(ypre, inst,name='origin'):
+def save_pred(ypre, inst, subffix=''):
     print len(inst)
     print len(ypre)
     df = pd.DataFrame({'instanceID': inst, 'prob': ypre})
     print 'df:'
     print df.shape
-    name+='.csv'
-    df.to_csv(name, index=False)
+    df.to_csv('submission.{}.csv'.format(subffix), index=False)
 
 
 def LR(xtrain, xvalid, ytrain, yvalid, pre_x):
@@ -343,9 +207,65 @@ def LR(xtrain, xvalid, ytrain, yvalid, pre_x):
     pre_y = model.predict_proba(pre_x)[:, 1]
 
     return pre_y, ll
+ 
+
+def LGB(xtrain, xvalid, xtest, ytrain, yvalid, ytest, pre_x, weight=1, use_gpu=False):
+    lgb_train = lgb.Dataset(xtrain, ytrain)
+    lgb_eval = lgb.Dataset(xvalid, yvalid, reference=lgb_train)
+
+    params = {
+        'boosting_type': 'gbdt',
+        'objective': 'binary',
+        'metric': 'binary_logloss',
+        'learning_rate': 0.05,
+        'feature_fraction': 0.5,
+        'is_unbalance': True,
+        'scale_pos_weight': weight,
+        'max_depth': 6,
+        'verbose': -1,
+        # 'num_threads': 8,
+    }
+    if use_gpu:
+        params['device'] = 'gpu'
+        # params['max_bin'] =
+
+    # feature_name = ['feature_' + str(col) for col in range(num_feature)]
+
+    print '----start training----'
+
+    gbm = lgb.train(
+        params,
+        lgb_train,
+        num_boost_round=1500,
+        valid_sets=[lgb_eval, lgb_train],
+        valid_names=['eval', 'train'],
+        early_stopping_rounds=100)
+
+    # gbm.save_model('gbm_model.txt')
+
+    # bst = lgb.Booster(model_file='gbm_model.txt')
+
+    valid_pre = gbm.predict(xvalid, num_iteration=gbm.best_iteration)
+    # print '-----valid-----'
+    # print 'not threshold: '
+    print '29/30'
+    ll = logloss(yvalid, valid_pre)
+    # print 'threshold: '
+    # valid_pre = threshold(valid_pre)
+    # logloss(yvalid, valid_pre)
+    test_pre = gbm.predict(xtest, num_iteration=gbm.best_iteration)
+    df = pd.DataFrame({'prob': test_pre})
+    df.to_csv('_29_pro.csv')
+    print '29'
+    ll1 = logloss(ytest, test_pre)
+
+    y_pre = gbm.predict(pre_x, num_iteration=gbm.best_iteration)
+    # print ' not thresholding final submission'
+    # y_pre = threshold(y_pre)
+    return y_pre, ll, ll1
 
 
-def LGB(xtrain, xvalid,xtest, ytrain, yvalid,ytest, pre_x, use_gpu=False):
+def LGB(xtrain, xvalid, ytrain, yvalid, pre_x, use_gpu=False, weight=0.1):
     lgb_train = lgb.Dataset(xtrain, ytrain)
     lgb_eval = lgb.Dataset(xvalid, yvalid, reference=lgb_train)
 
@@ -369,13 +289,13 @@ def LGB(xtrain, xvalid,xtest, ytrain, yvalid,ytest, pre_x, use_gpu=False):
 
     print '----start training----'
 
-    gbm = lgb.train(params,
-                    lgb_train,
-                    num_boost_round=1500,
-                    valid_sets=[lgb_eval, lgb_train],
-                    valid_names=['eval', 'train'],
-                    early_stopping_rounds=100,
-                    verbose_eval=False)
+    gbm = lgb.train(
+        params,
+        lgb_train,
+        num_boost_round=1500,
+        valid_sets=[lgb_eval, lgb_train],
+        valid_names=['eval', 'train'],
+        early_stopping_rounds=100)
 
     # gbm.save_model('gbm_model.txt')
 
@@ -386,19 +306,16 @@ def LGB(xtrain, xvalid,xtest, ytrain, yvalid,ytest, pre_x, use_gpu=False):
     # print 'not threshold: '
     print '29/30'
     ll = logloss(yvalid, valid_pre)
+    df = pd.DataFrame({'prob': valid_pre})
+    df.to_csv('valid_pre.csv')
     # print 'threshold: '
     # valid_pre = threshold(valid_pre)
     # logloss(yvalid, valid_pre)
-    test_pre = gbm.predict(xtest, num_iteration=gbm.best_iteration)
-    print '29'
-    ll1 = logloss(ytest, test_pre)
 
     y_pre = gbm.predict(pre_x, num_iteration=gbm.best_iteration)
     # print ' not thresholding final submission'
     # y_pre = threshold(y_pre)
-    return y_pre, ll,ll1
-
-
+    return y_pre, ll
 
 
 if __name__ == '__main__':
@@ -445,56 +362,24 @@ if __name__ == '__main__':
     # FFM
     # to_FFM(df_train, df_pre, with_ohe=False, if_CV=True)
     # LGB
-    feature_list_=feature_list[:]
     if if_CV:
         x, y, groups, pre_x, inst_id = to_LGBM(df_train, df_pre, if_CV=True)
         ypre = cross_validation(x, y, pre_x, groups, model='LGB', test_days=1)
     else:
         train_x, train_y, test_x, test_y, test_x1, test_y1, pre_x, inst_id = to_LGBM(
-            feature_list_, df_train, df_pre, test_days=2, if_CV=False)
-        # x, y, groups, pre_x, inst_id = to_LGBM(df_train, df_pre, test_days=2, if_CV=True)
-        # split_train_test(x, y, test_size=0.2, stratify=True, with_df=False)
-        # train_x, test_x, train_y, test_y = train_test_split(x,y,test_size=0.1,stratify=y)
-        y_pre, ll_min,ll1_min = LGB(train_x, test_x,test_x1, train_y, test_y, test_y1,pre_x)
-        inst_id = inst_id.astype(int)
-        save_pred(y_pre, inst_id)
-        print "orignal results save successfully!"
-        delete_features = []
-        feature_list_temp = feature_list[:]
-        print len(feature_list)
-        for feature in feature_list:
-            print feature+': '
-            feature_list_temp.remove(feature)
-            feature_list_temp_=feature_list_temp[:]
-            train_x, train_y, test_x, test_y,test_x1, test_y1,pre_x, inst_id = to_LGBM(
-                feature_list_temp_, df_train, df_pre, test_days=2, if_CV=False)
-            y_pre, ll,ll1 = LGB(train_x, test_x,test_x1, train_y, test_y, test_y1,pre_x)
-            if ll > ll_min or ll1>ll1_min:
-                feature_list_temp.append(feature)
-                print feature + ': yes'
-            else:
-                ll_min = ll
-                ll1_min = ll1
-                name_string=ll1_min.astype(str)
-                inst_id = inst_id.astype(int)
-                save_pred(y_pre, inst_id,name=name_string)
-                print "save successfully!"
-                delete_features.append(feature)
-                print feature + ': no'
-            print 'now delete features:'
-            print delete_features
-        print 'result:'
-        print feature_list_temp
+            df_train, df_pre, test_days=2, if_CV=False)
+        ypre, _, _ = LGB(train_x, test_x, test_x1, train_y, test_y, test_y1,
+                         pre_x)
 
         # RF(train_x, train_y, test_x, test_y, pre_x)
-        
+
         # x, y, groups, pre_x, inst_id = to_LGBM(df_train, df_pre, test_days=2, if_CV=True)
         # split_train_test(x, y, test_size=0.2, stratify=True, with_df=False)
         # train_x, test_x, train_y, test_y = train_test_split(x,y,test_size=0.1,stratify=y)
-       
+
     # 保存结果
-    # inst_id = inst_id.astype(int)
-    # save_pred(ypre, inst_id)
+    inst_id = inst_id.astype(int)
+    save_pred(ypre, inst_id)
     # ypre = XGB(x, y, xpre)
 
     # random forest
