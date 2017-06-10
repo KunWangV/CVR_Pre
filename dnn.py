@@ -4,6 +4,7 @@ from __future__ import print_function
 from __future__ import division
 
 import pandas as pd
+import pickle
 import numpy as np
 
 from keras.layers import Concatenate, Conv1D, LocallyConnected1D, Dense, Dropout, Input, Embedding, concatenate
@@ -11,15 +12,11 @@ from keras.models import Sequential, Model
 from keras.metrics import binary_accuracy
 from keras.preprocessing.image import ImageDataGenerator
 
-real_cvt_feats = [
-]
+real_cvt_feats = []
 
-real_cnt_feats = [
+real_cnt_feats = []
 
-]
-
-real_other = [
-]
+real_other = []
 
 cate_low_dim = [
     'age',
@@ -61,9 +58,7 @@ cate_high_dim = [
 
 cate_feats = cate_high_dim + cate_low_dim
 real_feats = real_cnt_feats + real_cvt_feats + real_other
-drop_feats = [
-
-]
+drop_feats = []
 
 
 class ColumnInfo(object):
@@ -84,7 +79,8 @@ class ColumnInfo(object):
         self.dtype = dtype
 
     def __str__(self):
-        return 'name: {}, type: {}, max value: {}, dtype: {}'.format(self.name, self.type, self.max_value, self.dtype)
+        return 'name: {}, type: {}, max value: {}, dtype: {}'.format(
+            self.name, self.type, self.max_value, self.dtype)
 
 
 class PandasGenerator(object):
@@ -123,7 +119,8 @@ class PandasGenerator(object):
         return self.length
 
 
-def get_model(column_info_list, hidden_layers=[512, 256, 128], batch_size=3000):
+def get_model(column_info_list, hidden_layers=[512, 256, 128],
+              batch_size=3000):
     inputs = []
     real_inputs = []
     cate_inputs = []
@@ -131,16 +128,20 @@ def get_model(column_info_list, hidden_layers=[512, 256, 128], batch_size=3000):
 
     for column in column_info_list:
         if column.type == 'category':
-            input = Input(shape=(1,), dtype=column.dtype,
-                          name='input_{}'.format(column.name))
+            input = Input(
+                shape=(1, ),
+                dtype=column.dtype,
+                name='input_{}'.format(column.name))
             emb = Embedding(
                 output_dim=10, input_dim=column.unique_size, input_length=1)
             embeddings.append(emb)
             cate_inputs.append(input)
 
         elif column.type == 'real':
-            input = Input(shape=(1,), dtype=column.dtype,
-                          name='input_{}'.format(column.name))
+            input = Input(
+                shape=(1, ),
+                dtype=column.dtype,
+                name='input_{}'.format(column.name))
             real_inputs.append(input)
 
         inputs.append(input)
@@ -152,19 +153,51 @@ def get_model(column_info_list, hidden_layers=[512, 256, 128], batch_size=3000):
     output = Dense(1, activation='softmax', name='output')
 
     model = Model(inputs=inputs, outputs=output)
-    model.compile(optimizer='rmsprop', loss='binary_crossentropy',
-                  sample_weight_mode=[1, 1 / 0.02])
+    model.compile(
+        optimizer='rmsprop',
+        loss='binary_crossentropy',
+        sample_weight_mode=[1, 1 / 0.02])
 
-    gen_train = PandasGenerator('df_trainx.csv', 'df_trainy.csv', batch_size=batch_size)
-    gen_test = PandasGenerator('df_testx.csv', 'df_testy.csv', batch_size=batch_size)
-    model.fit_generator(generator=gen_train,
-                        validation_data=gen_test,
-                        validation_steps=len(gen_test),
-                        steps_per_epoch=np.floor(len(gen_train) / batch_size),
-                        )
+    gen_train = PandasGenerator(
+        'df_trainx.csv', 'df_trainy.csv', batch_size=batch_size)
+    gen_test = PandasGenerator(
+        'df_testx.csv', 'df_testy.csv', batch_size=batch_size)
+    model.fit_generator(
+        generator=gen_train,
+        validation_data=gen_test,
+        validation_steps=len(gen_test),
+        steps_per_epoch=np.floor(len(gen_train) / batch_size), )
 
-def gen_column_list():
-    pass
+
+def gen_column_list(df, save=True, save_name='column_list.pkl'):
+    columns = df.columns.values
+    infos = []
+    for c in columns:
+        if c in cate_feats and c not in drop_feats:
+            df[c] = df[c].astype('int64')
+            info = ColumnInfo(
+                name=c,
+                type='category',
+                unique_size=df[c].max(),
+                dtype='int64')
+
+            infos.append(info)
+
+        elif c in real_feats and c not in drop_feats:
+            info = ColumnInfo(
+                name=c,
+                type='real',
+                dtype=str(df[c].dtype),
+                unique_size=None, )
+            infos.append(info)
+
+        else:
+            print('unknow column')
+
+    if save:
+        pickle.dump(infos, open(save_name, 'wb'))
+
+    return infos
 
 def main():
     pass
