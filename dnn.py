@@ -7,6 +7,8 @@ import pandas as pd
 import pickle
 import numpy as np
 
+from feature.data import *
+
 from keras.layers import Concatenate, Conv1D, LocallyConnected1D, Dense, Dropout, Input, Embedding, concatenate
 from keras.models import Sequential, Model
 from keras.metrics import binary_accuracy
@@ -161,7 +163,7 @@ def get_model(column_info_list, hidden_layers=[512, 256, 128],
     gen_train = PandasGenerator(
         'df_trainx.csv', 'df_trainy.csv', batch_size=batch_size)
     gen_test = PandasGenerator(
-        'df_testx.csv', 'df_testy.csv', batch_size=batch_size)
+        'df_testx.csv', 'df_testy.csv', batch_size=1)
     model.fit_generator(
         generator=gen_train,
         validation_data=gen_test,
@@ -194,14 +196,18 @@ def gen_column_list(df, save=True, save_name='column_list.pkl'):
         else:
             print('unknow column')
 
+    print(infos)
+
     if save:
         pickle.dump(infos, open(save_name, 'wb'))
 
     return infos
 
 def main():
-    pass
-
+    df = pd.read_csv('df_basic_train.csv')
+    del df['label']
+    infos = get_model(df)
+    get_model(infos,hidden_layers=[512, 256, 128], batch_size=3000)
 
 if __name__ == '__main__':
     main()

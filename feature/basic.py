@@ -43,10 +43,14 @@ def make_basic(for_train):
 
     # context
     print '== make context feature =='
-    df_result['clickTime_day'] = np.floor(df_result['clickTime'].astype(int)/1000000).astype(int)
-    df_result['clickTime_hour'] = np.floor(df_result['clickTime'].astype(int)%1000000/10000).astype(int)
-    df_result['clickTime_minute'] = np.floor(df_result['clickTime'].astype(int)%10000/100).astype(int)
-    df_result['clickTime_seconds'] = np.floor(df_result['clickTime'].astype(int)%100).astype(int)
+    df_result['clickTime_day'] = np.floor(
+        df_result['clickTime'].astype(int) / 1000000).astype(int)
+    df_result['clickTime_hour'] = np.floor(
+        df_result['clickTime'].astype(int) % 1000000 / 10000).astype(int)
+    df_result['clickTime_minute'] = np.floor(
+        df_result['clickTime'].astype(int) % 10000 / 100).astype(int)
+    df_result['clickTime_seconds'] = np.floor(
+        df_result['clickTime'].astype(int) % 100).astype(int)
 
     df_result['clickTime_week'] = df_result['clickTime_day'].astype(int) % 7
 
@@ -70,6 +74,27 @@ def make_basic(for_train):
     else:
         df_result.to_csv('df_basic_test.csv', index=False)
     print "start: {} end: {} used: {}".format(start, end, end - start)
+
+
+def make_train_test():
+    df = pd.read_csv('df_basic_train.csv')
+    df_test = df.loc[(df['clickTime_day'] == 29) &
+                     (df['clickTime_day'] == 30), :]
+
+    df_train = df.loc[df['clickTime_day'] < 29, :]
+
+    df_train_y = df_train['label']
+    df_test_y = df_test['label']
+
+    del df_train['label']
+    del df_test['label']
+
+    df_train.to_csv('df_trainx.csv', index=False)
+    df_test.to_csv('df_testx.csv', indxe=False)
+
+    df_train_y.to_csv('df_trainy.csv', index=False)
+    df_test_y.to_csv('df_testy.csv', index=False)
+
 
 if __name__ == '__main__':
     make_basic(True)
