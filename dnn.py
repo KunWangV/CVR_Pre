@@ -14,6 +14,8 @@ from keras.layers import Concatenate, Conv1D, LocallyConnected1D, Dense, Dropout
 from keras.models import Sequential, Model
 from keras.metrics import binary_accuracy
 from keras.preprocessing.image import ImageDataGenerator
+from keras.callbacks import ModelCheckpoint, EarlyStopping
+from keras.utils import to_categorical
 
 real_cvt_feats = []
 
@@ -29,6 +31,7 @@ cate_low_dim = [
     'clickTime_hour',
     'clickTime_minute',
     'clickTime_week',
+    'clickTime_seconds',
     'connectionType',
     'education',
     'gender',
@@ -41,12 +44,6 @@ cate_low_dim = [
     'residence_c',
     'residence_p',
     'appID',
-    'inst_is_installed',
-    'is_day_rpt_first_click',
-    'is_day_rpt_last_click',
-    'is_rpt_first_click',
-    'is_rpt_last_click',
-    'tt_is_installed',
     'sitesetID',
 ]
 
@@ -90,17 +87,24 @@ class PandasGenerator(object):
     """
     """
 
-    def __init__(self, df_x, df_y, batch_size):
-        self.df_x = pd.read_csv(df_x)
+    def __init__(self, df_x, df_y, batch_size, infos):
+        column_list = []
+        for info in infos:
+            column_list.append(info.name)
+
+        self.df_x = pd.read_csv(df_x).loc[:, column_list]
         self.df_y = pd.read_csv(df_y)
         self.batch_size = batch_size
-        self.length = self.df_x.shape[1]
+        self.length = self.df_x.shape[0]
         self.idx = 0
 
-    def __next__(self):
+        print(self.df_x.shape)
+        print(self.df_y.shape)
+
+    def next(self):
         if self.idx + self.batch_size <= self.length:
-            x = self.df_x.iloc[self.idx:self.idx + self.batch_size]
-            y = self.df_y.iloc[self.idx:self.idx + self.batch_size]
+            x = self.df_x.iloc[self.idx:self.idx + self.batch_size].values
+            y = self.df_y.iloc[self.idx:self.idx + self.batch_size].values
             self.idx = (self.idx + self.batch_size) % self.length
 
         else:
@@ -114,9 +118,15 @@ class PandasGenerator(object):
             y = pd.concat([y, _y], axis=0).values
             self.idx = left
 
+        # print(x.shape)
+        # print(y.shape)
         inputs = np.split(x, x.shape[1], axis=1)
-        outputs = y
+        outputs = to_categorical(y, 2)
+        outputs = outputs[:, np.newaxis, :]
         return inputs, outputs
+
+    def __iter__(self):
+        return self
 
     def __len__(self):
         return self.length
@@ -136,7 +146,7 @@ def get_model(column_info_list, hidden_layers=[512, 256, 128],
                 dtype=column.dtype,
                 name='input_{}'.format(column.name))
             emb = Embedding(
-                output_dim=10, input_dim=column.unique_size, input_length=1)(input)
+                output_dim=10, input_dim=column.unique_size + 1, input_length=1)(input)
             embeddings.append(emb)
             cate_inputs.append(input)
 
@@ -153,7 +163,7 @@ def get_model(column_info_list, hidden_layers=[512, 256, 128],
     for layer_size in hidden_layers:
         x = Dense(layer_size, activation='sigmoid')(x)
 
-    output = Dense(1, activation='softmax', name='output')(x)
+    output = Dense(2, activation='softmax', name='output')(x)
 
     model = Model(inputs=inputs, outputs=output)
 
@@ -161,24 +171,31 @@ def get_model(column_info_list, hidden_layers=[512, 256, 128],
 
     model.compile(
         optimizer='rmsprop',
-        loss='binary_crossentropy')
+        loss='binary_crossentropy',
+        metrics=['accuracy'])
 
     gen_train = PandasGenerator(
-        'df_trainx.csv', 'df_trainy.csv', batch_size=batch_size)
+        'df_trainx.csv', 'df_trainy.csv', batch_size, column_info_list)
     gen_test = PandasGenerator(
-        'df_testx.csv', 'df_testy.csv', batch_size=1)
+        'df_testx.csv', 'df_testy.csv', 1, column_info_list)
 
+    callbacks = []
+    callbacks.append(ModelCheckpoint(
+        filepath='weights.{epoch:02d}-{val_loss:.2f}.hdf5', monitor='val_loss', period=10))
     model.fit_generator(
         generator=gen_train,
         validation_data=gen_test,
         validation_steps=len(gen_test),
-        steps_per_epoch=np.floor(len(gen_train) / batch_size), )
+        steps_per_epoch=10473,
+        # callbacks=callbacks,
+    )
 
 
 def gen_column_list(df, save=True, save_name='column_list.pkl'):
     columns = df.columns.values
     infos = []
     for c in columns:
+        print(c)
         if c in cate_feats and c not in drop_feats:
             df[c] = df[c].astype('int64')
             info = ColumnInfo(
@@ -205,10 +222,11 @@ def gen_column_list(df, save=True, save_name='column_list.pkl'):
 
     return infos
 
+
 def main():
     if os.path.exists('column_list.pkl'):
-        infos = pickle.load(open('column_list.pkl','rb'))
-    
+        infos = pickle.load(open('column_list.pkl', 'rb'))
+
     else:
         print("generate column list")
         df = pd.read_csv('df_basic_train.csv')
@@ -217,6 +235,7 @@ def main():
 
     print('train....')
     get_model(infos, hidden_layers=[512, 256, 128], batch_size=3000)
+
 
 if __name__ == '__main__':
     main()

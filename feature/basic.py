@@ -75,28 +75,38 @@ def make_basic(for_train):
         df_result.to_csv('df_basic_test.csv', index=False)
     print "start: {} end: {} used: {}".format(start, end, end - start)
 
+    return df_result
 
-def make_train_test():
-    df = pd.read_csv('df_basic_train.csv')
-    df_test = df.loc[(df['clickTime_day'] == 29) &
-                     (df['clickTime_day'] == 30), :]
+
+def make_train_test(df):
+
+    if df is None:
+        df = pd.read_csv('df_basic_train.csv')
+
+    print df['clickTime_day'].unique()
+
+    df_test = df.loc[df['clickTime_day'] >= 29, :]
 
     df_train = df.loc[df['clickTime_day'] < 29, :]
 
-    df_train_y = df_train['label']
-    df_test_y = df_test['label']
+    df_train_y = pd.DataFrame(df_train.loc[:, 'label']).copy()
+    df_test_y = pd.DataFrame(df_test.loc[:, 'label']).copy()
+    df_test_y.columns = ['label']
+    df_train_y.columns = ['label']
 
-    del df_train['label']
-    del df_test['label']
-
-    df_train.to_csv('df_trainx.csv', index=False)
-    df_test.to_csv('df_testx.csv', index=False)
+    print df_train.shape, df_test.shape, df_train_y.shape, df_test_y.shape
 
     df_train_y.to_csv('df_trainy.csv', index=False)
     df_test_y.to_csv('df_testy.csv', index=False)
 
+    # del df_train['label']
+    # del df_test['label']
+
+    # df_train.to_csv('df_trainx.csv', index=False)
+    # df_test.to_csv('df_testx.csv', index=False)
+
 
 if __name__ == '__main__':
-    # make_basic(True)
+    # result = make_basic(True)
     # make_basic(False)
-    make_train_test()
+    make_train_test(None)
