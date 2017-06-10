@@ -1,12 +1,14 @@
 # coding: utf-8
 
-from __future__ import print_function
+from __future__ import absolute_import
 from __future__ import division
+from __future__ import print_function
 
 import pandas as pd
 import pickle
 import numpy as np
 import os
+import math
 
 from feature.data import *
 
@@ -14,8 +16,11 @@ from keras.layers import Concatenate, Conv1D, LocallyConnected1D, Dense, Dropout
 from keras.models import Sequential, Model
 from keras.metrics import binary_accuracy
 from keras.preprocessing.image import ImageDataGenerator
-from keras.callbacks import ModelCheckpoint, EarlyStopping
+from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard, ReduceLROnPlateau, Callback
 from keras.utils import to_categorical
+
+import tensorflow as tf
+import loss
 
 real_cvt_feats = []
 
@@ -88,42 +93,58 @@ class PandasGenerator(object):
     """
 
     def __init__(self, df_x, df_y, batch_size, infos):
-        column_list = []
+        self.column_list = []
         for info in infos:
-            column_list.append(info.name)
+            self.column_list.append(info.name)
 
-        self.df_x = pd.read_csv(df_x).loc[:, column_list]
+        self.df_x = pd.read_csv(df_x).loc[:, self.column_list]
         self.df_y = pd.read_csv(df_y)
         self.batch_size = batch_size
+
         self.length = self.df_x.shape[0]
         self.idx = 0
 
+        if batch_size == 'all':
+            self.batch_size = self.length
+
+        if batch_size == 'auto':
+            self.batch_size = self.max_batch_size()
+
         print(self.df_x.shape)
         print(self.df_y.shape)
+        print(self.df_x.clickTime_day.unique())
+        print(self.df_y.label.unique())
 
     def next(self):
+
         if self.idx + self.batch_size <= self.length:
-            x = self.df_x.iloc[self.idx:self.idx + self.batch_size].values
-            y = self.df_y.iloc[self.idx:self.idx + self.batch_size].values
-            self.idx = (self.idx + self.batch_size) % self.length
+            x = self.df_x.iloc[self.idx:(self.idx + self.batch_size), :].values
+            y = self.df_y.iloc[self.idx:(self.idx + self.batch_size), :].values
+            self.idx = self.idx + self.batch_size
 
         else:
-            x = self.df_x.iloc[self.idx:self.length]
-            y = self.df_y.iloc[self.idx:self.length]
+            x1 = self.df_x.iloc[self.idx:self.length, :]
+            y1 = self.df_y.iloc[self.idx:self.length, :]
             left = self.idx + self.batch_size - self.length
             _x = self.df_x.iloc[:left]
             _y = self.df_y.iloc[:left]
 
-            x = pd.concat([x, _x], axis=0).values
-            y = pd.concat([y, _y], axis=0).values
+            x = pd.concat([x1, _x], axis=0).values
+            y = pd.concat([y1, _y], axis=0).values
             self.idx = left
 
-        # print(x.shape)
-        # print(y.shape)
+        print(np.max(y))
+        print(x.shape)
+        print(y.shape)
         inputs = np.split(x, x.shape[1], axis=1)
         outputs = to_categorical(y, 2)
         outputs = outputs[:, np.newaxis, :]
-        return inputs, outputs
+
+        weights = np.squeeze(y)
+        weights[weights == 1] = 1 / 0.026  # sample weight
+        weights[weights == 0] = 1
+
+        return inputs, outputs, weights
 
     def __iter__(self):
         return self
@@ -131,9 +152,37 @@ class PandasGenerator(object):
     def __len__(self):
         return self.length
 
+    def n_per_epoch(self):
+        return np.ceil(self.length / float(self.batch_size))
 
-def get_model(column_info_list, hidden_layers=[512, 256, 128],
-              batch_size=3000):
+    def label(self):
+        return self.df_y.values
+
+    def max_batch_size(self):
+        i = 2
+        for i in range(2, 100):
+            if self.length % i == 0:
+                break
+
+        return self.length // i
+
+
+class EvalCallback(Callback):
+    def __init__(self, model, generator):
+        super(EvalCallback, self).__init__()
+        self.model = model
+        self.generator = generator
+
+    def on_epoch_end(self, epoch, logs=None):
+        pred = self.model.predict_generator(self.generator, 1)
+        print(pred.shape)
+        ppred = np.squeeze(pred[:, :, 1])
+        loss.logloss(np.squeeze(self.generator.label()), ppred)
+
+
+def get_model(column_info_list,
+              hidden_layers=[512, 256, 128],
+              batch_size=10000):
     inputs = []
     real_inputs = []
     cate_inputs = []
@@ -146,7 +195,9 @@ def get_model(column_info_list, hidden_layers=[512, 256, 128],
                 dtype=column.dtype,
                 name='input_{}'.format(column.name))
             emb = Embedding(
-                output_dim=10, input_dim=column.unique_size + 1, input_length=1)(input)
+                output_dim=10,
+                input_dim=column.unique_size + 1,
+                input_length=1)(input)
             embeddings.append(emb)
             cate_inputs.append(input)
 
@@ -172,23 +223,31 @@ def get_model(column_info_list, hidden_layers=[512, 256, 128],
     model.compile(
         optimizer='rmsprop',
         loss='binary_crossentropy',
-        metrics=['accuracy'])
+        metrics=['accuracy', tf.losses.log_loss])
 
-    gen_train = PandasGenerator(
-        'df_trainx.csv', 'df_trainy.csv', batch_size, column_info_list)
-    gen_test = PandasGenerator(
-        'df_testx.csv', 'df_testy.csv', 1, column_info_list)
+    gen_train = PandasGenerator('df_trainx.csv', 'df_trainy.csv', batch_size,
+                                column_info_list)
+    gen_test = PandasGenerator('df_testx.csv', 'df_testy.csv', 'auto',
+                               column_info_list)
 
     callbacks = []
-    callbacks.append(ModelCheckpoint(
-        filepath='weights.{epoch:02d}-{val_loss:.2f}.hdf5', monitor='val_loss', period=10))
+    callbacks.append(
+        ModelCheckpoint(
+            filepath='weights.{epoch:02d}-{val_loss:.2f}.hdf5',
+            monitor='val_loss',
+            period=1))
+
+    callbacks.append(TensorBoard(log_dir='./logs', histogram_freq=1))
+    callbacks.append(
+        ReduceLROnPlateau(
+            monitor='val_loss', factor=0.2, patience=5, min_lr=0.001))
+    # callbacks.append(EvalCallback(model, gen_test))
     model.fit_generator(
         generator=gen_train,
         validation_data=gen_test,
-        validation_steps=len(gen_test),
-        steps_per_epoch=10473,
-        # callbacks=callbacks,
-    )
+        validation_steps=gen_test.n_per_epoch(),
+        steps_per_epoch=10,
+        callbacks=callbacks, )
 
 
 def gen_column_list(df, save=True, save_name='column_list.pkl'):
@@ -234,8 +293,13 @@ def main():
         infos = gen_column_list(df)
 
     print('train....')
-    get_model(infos, hidden_layers=[512, 256, 128], batch_size=3000)
+    get_model(infos, hidden_layers=[512, 256, 128], batch_size=10000)
 
+
+# 31419479, 27)
+# (31419479, 1)
+# (6493437, 27)
+# (6493437, 1)
 
 if __name__ == '__main__':
     main()
