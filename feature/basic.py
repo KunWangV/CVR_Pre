@@ -90,12 +90,13 @@ def make_train_test():
     del df_test['label']
 
     df_train.to_csv('df_trainx.csv', index=False)
-    df_test.to_csv('df_testx.csv', indxe=False)
+    df_test.to_csv('df_testx.csv', index=False)
 
     df_train_y.to_csv('df_trainy.csv', index=False)
     df_test_y.to_csv('df_testy.csv', index=False)
 
 
 if __name__ == '__main__':
-    make_basic(True)
-    make_basic(False)
+    # make_basic(True)
+    # make_basic(False)
+    make_train_test()

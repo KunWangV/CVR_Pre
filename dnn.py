@@ -6,6 +6,7 @@ from __future__ import division
 import pandas as pd
 import pickle
 import numpy as np
+import os
 
 from feature.data import *
 
@@ -93,14 +94,14 @@ class PandasGenerator(object):
         self.df_x = pd.read_csv(df_x)
         self.df_y = pd.read_csv(df_y)
         self.batch_size = batch_size
-        self.length = df_x.shape[1]
+        self.length = self.df_x.shape[1]
         self.idx = 0
 
     def __next__(self):
         if self.idx + self.batch_size <= self.length:
             x = self.df_x.iloc[self.idx:self.idx + self.batch_size]
             y = self.df_y.iloc[self.idx:self.idx + self.batch_size]
-            self.idx = self.idx + self.batch_size
+            self.idx = (self.idx + self.batch_size) % self.length
 
         else:
             x = self.df_x.iloc[self.idx:self.length]
@@ -135,7 +136,7 @@ def get_model(column_info_list, hidden_layers=[512, 256, 128],
                 dtype=column.dtype,
                 name='input_{}'.format(column.name))
             emb = Embedding(
-                output_dim=10, input_dim=column.unique_size, input_length=1)
+                output_dim=10, input_dim=column.unique_size, input_length=1)(input)
             embeddings.append(emb)
             cate_inputs.append(input)
 
@@ -152,18 +153,21 @@ def get_model(column_info_list, hidden_layers=[512, 256, 128],
     for layer_size in hidden_layers:
         x = Dense(layer_size, activation='sigmoid')(x)
 
-    output = Dense(1, activation='softmax', name='output')
+    output = Dense(1, activation='softmax', name='output')(x)
 
     model = Model(inputs=inputs, outputs=output)
+
+    model.summary()
+
     model.compile(
         optimizer='rmsprop',
-        loss='binary_crossentropy',
-        sample_weight_mode=[1, 1 / 0.02])
+        loss='binary_crossentropy')
 
     gen_train = PandasGenerator(
         'df_trainx.csv', 'df_trainy.csv', batch_size=batch_size)
     gen_test = PandasGenerator(
         'df_testx.csv', 'df_testy.csv', batch_size=1)
+
     model.fit_generator(
         generator=gen_train,
         validation_data=gen_test,
@@ -196,18 +200,23 @@ def gen_column_list(df, save=True, save_name='column_list.pkl'):
         else:
             print('unknow column')
 
-    print(infos)
-
     if save:
         pickle.dump(infos, open(save_name, 'wb'))
 
     return infos
 
 def main():
-    df = pd.read_csv('df_basic_train.csv')
-    del df['label']
-    infos = get_model(df)
-    get_model(infos,hidden_layers=[512, 256, 128], batch_size=3000)
+    if os.path.exists('column_list.pkl'):
+        infos = pickle.load(open('column_list.pkl','rb'))
+    
+    else:
+        print("generate column list")
+        df = pd.read_csv('df_basic_train.csv')
+        del df['label']
+        infos = gen_column_list(df)
+
+    print('train....')
+    get_model(infos, hidden_layers=[512, 256, 128], batch_size=3000)
 
 if __name__ == '__main__':
     main()
