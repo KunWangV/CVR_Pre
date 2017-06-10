@@ -66,16 +66,6 @@ drop_feats = [
 ]
 
 
-class PandasGenerator(object):
-    """
-    """
-    def __next__(self):
-        pass
-
-    def __len__(self):
-        pass
-
-
 class ColumnInfo(object):
     """
     每列信息类
@@ -97,7 +87,43 @@ class ColumnInfo(object):
         return 'name: {}, type: {}, max value: {}, dtype: {}'.format(self.name, self.type, self.max_value, self.dtype)
 
 
-def get_model(column_info_list, hidden_layers=[512, 256, 128], ):
+class PandasGenerator(object):
+    """
+    """
+
+    def __init__(self, df_x, df_y, batch_size):
+        self.df_x = pd.read_csv(df_x)
+        self.df_y = pd.read_csv(df_y)
+        self.batch_size = batch_size
+        self.length = df_x.shape[1]
+        self.idx = 0
+
+    def __next__(self):
+        if self.idx + self.batch_size <= self.length:
+            x = self.df_x.iloc[self.idx:self.idx + self.batch_size]
+            y = self.df_y.iloc[self.idx:self.idx + self.batch_size]
+            self.idx = self.idx + self.batch_size
+
+        else:
+            x = self.df_x.iloc[self.idx:self.length]
+            y = self.df_y.iloc[self.idx:self.length]
+            left = self.idx + self.batch_size - self.length
+            _x = self.df_x.iloc[:left]
+            _y = self.df_y.iloc[:left]
+
+            x = pd.concat([x, _x], axis=0).values
+            y = pd.concat([y, _y], axis=0).values
+            self.idx = left
+
+        inputs = np.split(x, x.shape[1], axis=1)
+        outputs = y
+        return inputs, outputs
+
+    def __len__(self):
+        return self.length
+
+
+def get_model(column_info_list, hidden_layers=[512, 256, 128], batch_size=3000):
     inputs = []
     real_inputs = []
     cate_inputs = []
@@ -105,13 +131,16 @@ def get_model(column_info_list, hidden_layers=[512, 256, 128], ):
 
     for column in column_info_list:
         if column.type == 'category':
-            input = Input(shape=(1,), dtype=column.dtype, name='input_{}'.format(column.name))
-            emb = Embedding(output_dim=10, input_dim=column.unique_size, input_length=1)
+            input = Input(shape=(1,), dtype=column.dtype,
+                          name='input_{}'.format(column.name))
+            emb = Embedding(
+                output_dim=10, input_dim=column.unique_size, input_length=1)
             embeddings.append(emb)
             cate_inputs.append(input)
 
         elif column.type == 'real':
-            input = Input(shape=(1,), dtype=column.dtype, name='input_{}'.format(column.name))
+            input = Input(shape=(1,), dtype=column.dtype,
+                          name='input_{}'.format(column.name))
             real_inputs.append(input)
 
         inputs.append(input)
@@ -123,8 +152,22 @@ def get_model(column_info_list, hidden_layers=[512, 256, 128], ):
     output = Dense(1, activation='softmax', name='output')
 
     model = Model(inputs=inputs, outputs=output)
-    model.compile(optimizer='rmsprop', loss='binary_crossentropy', sample_weight_mode=[1, 1 / 0.02])
-    model.fit_generator(epochs=30, validation_data=)
+    model.compile(optimizer='rmsprop', loss='binary_crossentropy',
+                  sample_weight_mode=[1, 1 / 0.02])
+
+    gen_train = PandasGenerator('df_trainx.csv', 'df_trainy.csv', batch_size=batch_size)
+    gen_test = PandasGenerator('df_testx.csv', 'df_testy.csv', batch_size=batch_size)
+    model.fit_generator(generator=gen_train,
+                        validation_data=gen_test,
+                        validation_steps=len(gen_test),
+                        steps_per_epoch=np.floor(len(gen_train) / batch_size),
+                        )
+
+def gen_column_list():
+    pass
+
+def main():
+    pass
 
 
 if __name__ == '__main__':
