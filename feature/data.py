@@ -32,7 +32,6 @@ FILE_USER_INSTALLEDAPPS = r'../user_installedapps.csv'
 def read_as_pandas(filename):
     return pd.read_csv(filename)
 
-
 def to_sparse_pd(m):
     """
     sparse matrix to sparse pandas

@@ -15,13 +15,11 @@ FILE_USER_APP_ACTIONS = r'../user_app_actions.csv'
 FILE_USER = r'../user.csv'
 FILE_USER_INSTALLEDAPPS = r'../user_installedapps.csv'
 
-
 # sess = SparkSession.builder.appName('tencent') \
 #     .config('spark.executor.memory', '1024m') \
 #     .config('spark.driver.memory', '1024m') \
 #     .master('local[4]') \
 #     .getOrCreate()
-
 
 # def load_file(file_name, view_name):
 #     df = sess.read.csv(file_name, inferSchema=True, header=True)
@@ -30,7 +28,7 @@ FILE_USER_INSTALLEDAPPS = r'../user_installedapps.csv'
 
 
 def read_as_pandas(filename):
-    return pd.read_csv(filename)
+    return pd.read_csv('../' + filename)
 
 
 def to_sparse_pd(m):
@@ -39,8 +37,10 @@ def to_sparse_pd(m):
     :param m:
     :return:
     """
-    return pd.SparseDataFrame([pd.SparseSeries(m[i].toarray().ravel())
-                               for i in np.arange(m.shape[0])])
+    return pd.SparseDataFrame([
+        pd.SparseSeries(m[i].toarray().ravel()) for i in np.arange(m.shape[0])
+    ])
+
 
 #
 # def load_ad():
@@ -77,7 +77,6 @@ def to_sparse_pd(m):
 #
 # def load_user_installedapps():
 #     return load_file(FILE_USER_INSTALLEDAPPS, 'user_installedapps')
-
 
 # if __name__ == '__main__':
 #     # ss, ad = load_ad()

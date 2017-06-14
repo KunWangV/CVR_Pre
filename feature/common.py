@@ -107,10 +107,12 @@ def map_by_chunk(filename, read_func, save_func, map_func, chunk_size=100000):
     idx = 0
     while loop:
         idx += 1
-        print(idx, )
+        print(
+            idx, )
         try:
             chunk = m.get_chunk(chunk_size)
-            print(chunk.shape, )
+            print(
+                chunk.shape, )
             chunk = map_func(chunk)
             print('after map', chunk.shape)
             save_func(chunk)
@@ -119,7 +121,12 @@ def map_by_chunk(filename, read_func, save_func, map_func, chunk_size=100000):
             print("iteration stops")
 
 
-def merge_by_chunk(filenames, read_func, save_func, map_func, chunk_size=100000, ):
+def merge_by_chunk(
+        filenames,
+        read_func,
+        save_func,
+        map_func,
+        chunk_size=100000, ):
     """
     把文件合并
     :param filenames: list filename
@@ -134,7 +141,8 @@ def merge_by_chunk(filenames, read_func, save_func, map_func, chunk_size=100000,
     idx = 0
     while loop:
         idx += 1
-        print(idx, )
+        print(
+            idx, )
         try:
             chunks = [m.get_chunk(chunk_size) for m in dfs]
             for i, df in enumerate(chunks):
@@ -146,3 +154,23 @@ def merge_by_chunk(filenames, read_func, save_func, map_func, chunk_size=100000,
         except StopIteration:
             loop = False
             print("iteration stops")
+
+
+def read_hdf(filename):
+    return pd.read_hdf(filename)
+
+
+def save_as_hdf(df, filename, key=None):
+    if key == None:
+        key = filename
+
+    df.to_hdf(filename, key=key)
+
+
+def read_as_pandas(filename):
+    if filename.endswith('.hdf5') or filename.endswith('.hdf'):
+        return pd.read_hdf(filename)
+
+    else:
+        return pd.read_csv(filenae)
+        

@@ -9,8 +9,6 @@ from scipy import sparse
 from sklearn.preprocessing import Normalizer
 from sklearn.preprocessing import StandardScaler
 
-from scipy import sparse
-
 import pandas as pd
 # from pyspark.ml.feature import OneHotEncoder as OHE
 # import pyspark.sql.functions as F
@@ -85,7 +83,8 @@ def transform_log(df, columns=[], threshold=2):
         _type = df[c].dtype
         df.loc[df[c] > threshold, c] = np.power(np.log(df[c].values), 2)
         if _type == np.int32 or _type == np.int64:
-            df.loc[df[c] > threshold, c] = np.floor(df.loc[df[c] > threshold, c])
+            df.loc[df[c] > threshold, c] = np.floor(
+                df.loc[df[c] > threshold, c])
 
 
 def transform_bucket(df, column=None, bucket=[], sort=True):
@@ -120,7 +119,13 @@ def get_cnt_creativeID_positionID():
     """
     train = read_as_pandas(FILE_TRAIN)
     train = train[train['label'] > 0]
-    train.drop(['label', 'conversionTime', 'userID', 'connectionType', 'telecomsOperator'], axis=1, inplace=True)
+    train.drop(
+        [
+            'label', 'conversionTime', 'userID', 'connectionType',
+            'telecomsOperator'
+        ],
+        axis=1,
+        inplace=True)
     tr = train.groupby(['creativeID', 'positionID']).count().rename(
         columns={'clickTime': 'cnt_creativeID_positionID'}).reset_index()
     return tr
@@ -137,19 +142,50 @@ def gen_appdi_feature():
     user_installedapps = pd.read_csv(FILE_USER_INSTALLEDAPPS)
     user_installedapps = user_installedapps.groupby('userID').agg(
         lambda x: ' '.join(['app' + str(s) for s in x.values])).reset_index()
-    user_id_all = pd.concat([train.userID, test.userID], axis=0)
+    df_concate = pd.concat([train, test], axis=0).reset_index(drop=True)
+    user_id_all = pd.concat(
+        [train.userID, test.userID], axis=0).reset_index(drop=True)
     user_id_all = pd.DataFrame(user_id_all, columns=['userID'])
-    user_installedapps = pd.merge(user_id_all.drop_duplicates(), user_installedapps, on='userID', how='left')
+    train_data = df_concate['clickTime'] // 1000000 <= 28
+    eval_data = np.logical_or(df_concate['clickTime'] // 1000000 == 29,
+                              df_concate['clickTime'] // 1000000 == 30)
+    test_data = df_concate['clickTime'] // 1000000 == 31
+    user_installedapps = pd.merge(
+        user_id_all.drop_duplicates(),
+        user_installedapps,
+        on='userID',
+        how='left')
     user_installedapps = user_installedapps.fillna('Missing')
     tfv = TfidfVectorizer()
     tfv.fit(user_installedapps.appID)
+    print user_installedapps.shape
+    # user_installedapps = pd.merge(
+    #     user_id_all, user_installedapps, on='userID', how='left')
 
-    user_installedapps = pd.merge(user_id_all, user_installedapps, on='userID', how='left')
+    print user_id_all[train_data].shape, user_id_all[
+        test_data].shape, user_id_all[eval_data].shape
+    user_installedapps_train = pd.merge(
+        user_id_all[train_data], user_installedapps, on='userID', how='left')
+    user_installedapps_test = pd.merge(
+        user_id_all[test_data], user_installedapps, on='userID', how='left')
+    user_installedapps_eval = pd.merge(
+        user_id_all[eval_data], user_installedapps, on='userID', how='left')
+    print user_installedapps_train.shape, user_installedapps_eval.shape, user_installedapps_eval.shape
+
     user_installedapps = user_installedapps.fillna('Missing')
-    user_installedapps_tfv = tfv.transform(user_installedapps.appID)
-    print user_installedapps_tfv.shape, type(user_installedapps_tfv)
-
-    return user_installedapps_tfv
+    # user_installedapps_tfv = tfv.transform(user_installedapps.appID)
+    train_user_installedapps_tfv = tfv.transform(
+        user_installedapps_train.appID)
+    eval_user_installedapps_tfv = tfv.transform(user_installedapps_eval.appID)
+    test_user_installedapps_tfv = tfv.transform(user_installedapps_test.appID)
+    # print user_installedapps_tfv.shape, type(user_installedapps_tfv)
+    # np_user_tfv = np.concatenate((user_installedapps.userID.values, np.asarray(user_installedapps_tfv)), axis=1)
+    # print np_user_tfv.shape, type(np_user_tfv)
+    # print type(user_installedapps_tfv)
+    print train_user_installedapps_tfv.shape, eval_user_installedapps_tfv.shape, test_user_installedapps_tfv.shape
+    return train_user_installedapps_tfv, eval_user_installedapps_tfv, test_user_installedapps_tfv
+    # pickle.dump(np_user_tfv, open('user_installedapps_tfv.pkl', 'w'), 2)
+    # pickle.dump(user_installedapps_tfv, open('installedapps_tfv.pkl', 'w'), 2)
 
 
 def get_click_features(_df, distinct=True):
@@ -171,7 +207,6 @@ def get_click_features(_df, distinct=True):
         'rpt_click_cnt',  # 当天重复点击此次数
         'is_rpt_first_click',  # 是否是当天的重复点击的第一次点击
         'is_rpt_last_click',  # 是否是当天重复点击的最后一次点击
-
         'position_day_click_cnt',  # 该位置每天的点击次数
         'postion_cri_day_click_cnt',  # 该位置 广告的日点击率
         'user_app_day_click_cnt',
@@ -185,9 +220,9 @@ def get_click_features(_df, distinct=True):
     for _c in columns_add:
         _df[_c] = np.zeros(_df.shape[0])
 
-    days = pd.Series(np.floor(_df['clickTime'] / 10000)).unique().astype(int)
+    days = pd.Series(np.floor(_df['clickTime'] / 1000000)).unique().astype(int)
     print 'days to caculdate: ', days
-    _df['clickTime_Day'] = np.floor(_df['clickTime'] / 10000).astype(int)
+    _df['clickTime_Day'] = np.floor(_df['clickTime'] / 1000000).astype(int)
 
     df_pre = None
 
@@ -201,8 +236,9 @@ def get_click_features(_df, distinct=True):
         # 该user该当天总的点击次数
         # user_day_click_cnt
         grp_columns = ['userID']
-        df_grp = df.groupby(grp_columns).count().reset_index().rename(columns={'mindex': 'user_day_click_cnt'}).loc[:,
-                 grp_columns + ['user_day_click_cnt']]
+        df_grp = df.groupby(grp_columns).count().reset_index().rename(
+            columns={'mindex': 'user_day_click_cnt'
+                     }).loc[:, grp_columns + ['user_day_click_cnt']]
         df = pd.merge(df, df_grp, how='left', on=grp_columns)
 
         # 该user当天点击该creative的次数
@@ -210,13 +246,15 @@ def get_click_features(_df, distinct=True):
         grp_columns = ['userID', 'creativeID']
         df_grp = pd.DataFrame(
             df.groupby(grp_columns).count().reset_index().rename(
-                columns={'mindex': 'user_cri_day_click_cnt'}).loc[:, grp_columns + ['user_cri_day_click_cnt']])
+                columns={'mindex': 'user_cri_day_click_cnt'})
+            .loc[:, grp_columns + ['user_cri_day_click_cnt']])
         df = pd.merge(df, df_grp, how='left', on=grp_columns)
 
         grp_columns = ['userID', 'adID']
         df_grp = pd.DataFrame(
             df.groupby(grp_columns).count().reset_index().rename(
-                columns={'mindex': 'user_app_day_click_cnt'}).loc[:, grp_columns + ['user_app_day_click_cnt']])
+                columns={'mindex': 'user_app_day_click_cnt'})
+            .loc[:, grp_columns + ['user_app_day_click_cnt']])
         df = pd.merge(df, df_grp, how='left', on=grp_columns)
 
         # 该广告当天被点击的次数 | 点击该广告的所有user的个数
@@ -224,44 +262,51 @@ def get_click_features(_df, distinct=True):
         grp_columns = ['creativeID']
         df_grp = pd.DataFrame(
             df.groupby(grp_columns).count().reset_index().rename(
-                columns={'mindex': 'cri_day_click_cnt'}).loc[:, grp_columns + ['cri_day_click_cnt']])
+                columns={'mindex': 'cri_day_click_cnt'})
+            .loc[:, grp_columns + ['cri_day_click_cnt']])
         df = pd.merge(df, df_grp, how='left', on=grp_columns)
 
         grp_columns = ['creativeID']
         df_grp = pd.DataFrame(
-            df.groupby(grp_columns).agg(pd.Series.nunique).reset_index().rename(
-                columns={'mindex': 'cri_uuser_click_cnt'}).loc[:, grp_columns + ['cri_uuser_click_cnt']])
+            df.groupby(grp_columns).agg(pd.Series.nunique).reset_index()
+            .rename(columns={'mindex': 'cri_uuser_click_cnt'
+                             }).loc[:, grp_columns + ['cri_uuser_click_cnt']])
         df = pd.merge(df, df_grp, how='left', on=grp_columns)
 
         grp_columns = ['adID']
         df_grp = pd.DataFrame(
             df.groupby(grp_columns).count().reset_index().rename(
-                columns={'mindex': 'app_day_click_cnt'}).loc[:, grp_columns + ['app_day_click_cnt']])
+                columns={'mindex': 'app_day_click_cnt'})
+            .loc[:, grp_columns + ['app_day_click_cnt']])
         df = pd.merge(df, df_grp, how='left', on=grp_columns)
 
         grp_columns = ['adID']
         df_grp = pd.DataFrame(
-            df.groupby(grp_columns).agg(pd.Series.nunique).reset_index().rename(
-                columns={'mindex': 'app_uuser_click_cnt'}).loc[:, grp_columns + ['app_uuser_click_cnt']])
+            df.groupby(grp_columns).agg(pd.Series.nunique).reset_index()
+            .rename(columns={'mindex': 'app_uuser_click_cnt'
+                             }).loc[:, grp_columns + ['app_uuser_click_cnt']])
         df = pd.merge(df, df_grp, how='left', on=grp_columns)
 
         # 该positionID的点击率
         grp_columns = ['positionID']
         df_grp = pd.DataFrame(
             df.groupby(grp_columns).count().reset_index().rename(
-                columns={'mindex': 'position_day_click_cnt'}).loc[:, grp_columns + ['position_day_click_cnt']])
+                columns={'mindex': 'position_day_click_cnt'})
+            .loc[:, grp_columns + ['position_day_click_cnt']])
         df = pd.merge(df, df_grp, how='left', on=grp_columns)
 
         grp_columns = ['positionID', 'creativeID']
         df_grp = pd.DataFrame(
-            df.groupby(grp_columns).agg(pd.Series.nunique).reset_index().rename(
-                columns={'mindex': 'postion_cri_day_click_cnt'}).loc[:, grp_columns + ['postion_cri_day_click_cnt']])
+            df.groupby(grp_columns).agg(pd.Series.nunique).reset_index()
+            .rename(columns={'mindex': 'postion_cri_day_click_cnt'})
+            .loc[:, grp_columns + ['postion_cri_day_click_cnt']])
         df = pd.merge(df, df_grp, how='left', on=grp_columns)
 
         grp_columns = ['positionID', 'adID']
         df_grp = pd.DataFrame(
-            df.groupby(grp_columns).agg(pd.Series.nunique).reset_index().rename(
-                columns={'mindex': 'postion_app_day_click_cnt'}).loc[:, grp_columns + ['postion_app_day_click_cnt']])
+            df.groupby(grp_columns).agg(pd.Series.nunique).reset_index()
+            .rename(columns={'mindex': 'postion_app_day_click_cnt'})
+            .loc[:, grp_columns + ['postion_app_day_click_cnt']])
         df = pd.merge(df, df_grp, how='left', on=grp_columns)
 
         # 该user重复点击点击次数 | 是否是第一次 | 是否是最后一次
@@ -270,15 +315,18 @@ def get_click_features(_df, distinct=True):
         # grp_columns = ['creativeID', 'userID', 'positionID']
         df_min_grp = pd.DataFrame(
             df.groupby(grp_columns).min().reset_index().rename(
-                columns={'mindex': 'rpt_min_index'}).loc[:, grp_columns + ['rpt_min_index']])
+                columns={'mindex': 'rpt_min_index'}).loc[:, grp_columns +
+                                                         ['rpt_min_index']])
 
         df_max_grp = pd.DataFrame(
             df.groupby(grp_columns).max().reset_index().rename(
-                columns={'mindex': 'rpt_max_index'}).loc[:, grp_columns + ['rpt_max_index']])
+                columns={'mindex': 'rpt_max_index'}).loc[:, grp_columns +
+                                                         ['rpt_max_index']])
 
         df_cnt_grpu = pd.DataFrame(
             df.groupby(grp_columns).count().reset_index().rename(
-                columns={'mindex': 'rpt_click_cnt'}).loc[:, grp_columns + ['rpt_click_cnt']])
+                columns={'mindex': 'rpt_click_cnt'}).loc[:, grp_columns +
+                                                         ['rpt_click_cnt']])
 
         df = pd.merge(df, df_min_grp, how='left', on=grp_columns)
         df = pd.merge(df, df_max_grp, how='left', on=grp_columns)
@@ -286,8 +334,10 @@ def get_click_features(_df, distinct=True):
         df['is_rpt_first_click'] = df['rpt_min_index'] == df['mindex']
         df['is_rpt_last_click'] = df['rpt_max_index'] == df['mindex']
 
-        df['is_rpt_first_click'] = df['is_rpt_first_click'].astype(int)  # boolean to int
-        df['is_rpt_last_click'] = df['is_rpt_last_click'].astype(int)  # boolean to int
+        df['is_rpt_first_click'] = df['is_rpt_first_click'].astype(
+            int)  # boolean to int
+        df['is_rpt_last_click'] = df['is_rpt_last_click'].astype(
+            int)  # boolean to int
 
         df.drop(['rpt_min_index', 'rpt_max_index'], axis=1, inplace=True)
 
@@ -295,15 +345,18 @@ def get_click_features(_df, distinct=True):
         grp_columns = ['adID', 'userID', 'positionID']
         df_min_grp = pd.DataFrame(
             df.groupby(grp_columns).min().reset_index().rename(
-                columns={'mindex': 'rpt_min_index'}).loc[:, grp_columns + ['rpt_min_index']])
+                columns={'mindex': 'rpt_min_index'}).loc[:, grp_columns +
+                                                         ['rpt_min_index']])
 
         df_max_grp = pd.DataFrame(
             df.groupby(grp_columns).max().reset_index().rename(
-                columns={'mindex': 'rpt_max_index'}).loc[:, grp_columns + ['rpt_max_index']])
+                columns={'mindex': 'rpt_max_index'}).loc[:, grp_columns +
+                                                         ['rpt_max_index']])
 
         df_cnt_grpu = pd.DataFrame(
             df.groupby(grp_columns).count().reset_index().rename(
-                columns={'mindex': 'rpt_day_click_cnt'}).loc[:, grp_columns + ['rpt_day_click_cnt']])
+                columns={'mindex': 'rpt_day_click_cnt'})
+            .loc[:, grp_columns + ['rpt_day_click_cnt']])
 
         df = pd.merge(df, df_min_grp, how='left', on=grp_columns)
         df = pd.merge(df, df_max_grp, how='left', on=grp_columns)
@@ -311,8 +364,10 @@ def get_click_features(_df, distinct=True):
         df['is_day_rpt_first_click'] = df['rpt_min_index'] == df['mindex']
         df['is_day_rpt_last_click'] = df['rpt_max_index'] == df['mindex']
 
-        df['is_day_rpt_first_click'] = df['is_day_rpt_first_click'].astype(int)  # boolean to int
-        df['is_day_rpt_last_click'] = df['is_day_rpt_last_click'].astype(int)  # boolean to int
+        df['is_day_rpt_first_click'] = df['is_day_rpt_first_click'].astype(
+            int)  # boolean to int
+        df['is_day_rpt_last_click'] = df['is_day_rpt_last_click'].astype(
+            int)  # boolean to int
 
         df.drop(['rpt_min_index', 'rpt_max_index'], axis=1, inplace=True)
         print df.describe()
@@ -330,7 +385,6 @@ def get_click_features(_df, distinct=True):
     print df_pre.shape
     print df_pre.describe()
     return df_pre
-
 
     # df['findex'] = range(df.shape[0])
     # dist_columns = ['clickTime', 'creativeID', 'userID', 'positionID', ]
@@ -357,7 +411,11 @@ def get_click_features(_df, distinct=True):
     #     pass
 
 
-def get_hist_feature(hist_list, df_concat, with_count=True, with_pre_day_cvt=True, with_pre_day_cnt=True):
+def get_hist_feature(hist_list,
+                     df_concat,
+                     with_count=True,
+                     with_pre_day_cvt=True,
+                     with_pre_day_cnt=True):
     """
     单变量历史转化率，历史数据特征
     :param hist_list:
@@ -379,19 +437,22 @@ def get_hist_feature(hist_list, df_concat, with_count=True, with_pre_day_cvt=Tru
         # 第十七天使用当天的妆化率
         _pre_cnt = None
         _pre_sum = None
-        for i in range(17, 32):
+        days = df_concat['clickTime_day'].unique().values
+        print days
+        start = days[1]
+        for i in days:
             print 'get hist of {}, day {}'.format(vn, i)
             df_concat['key'] = df_concat[vn].astype('category').values.codes
-            if i > 17:
-                df_grp_ = df_concat.loc[df_concat['clickTime_day'] < i, [
-                    'label', 'key']].copy()
+            if i > start:
+                df_grp_ = df_concat.loc[df_concat['clickTime_day'] < i,
+                                        ['label', 'key']].copy()
 
             else:
-                df_grp_ = df_concat.loc[df_concat['clickTime_day'] == i, [
-                    'label', 'key']].copy()
+                df_grp_ = df_concat.loc[df_concat['clickTime_day'] == i,
+                                        ['label', 'key']].copy()
             # 当前天
-            pre_grp_ = df_concat.loc[df_concat['clickTime_day'] == i, [
-                'label', 'key']].copy()
+            pre_grp_ = df_concat.loc[df_concat['clickTime_day'] == i,
+                                     ['label', 'key']].copy()
             pre_grp = pre_grp_
             pre_cnt = pre_grp.groupby('key').aggregate(np.size)
             pre_sum = pre_grp.groupby('key').aggregate(np.sum)
@@ -400,8 +461,8 @@ def get_hist_feature(hist_list, df_concat, with_count=True, with_pre_day_cvt=Tru
             df_grp = df_grp_
             cnt = df_grp.groupby('key').aggregate(np.size)
             sum = df_grp.groupby('key').aggregate(np.sum)
-            v_codes = df_concat.loc[df_concat['clickTime_day']
-                                    == i, 'key'].values
+            v_codes = df_concat.loc[df_concat['clickTime_day'] == i,
+                                    'key'].values
 
             if len(list(set(v_codes).intersection(set(cnt.index)))) != 0:
                 _cnt = cnt.loc[v_codes, :].values
@@ -410,13 +471,14 @@ def get_hist_feature(hist_list, df_concat, with_count=True, with_pre_day_cvt=Tru
                 __cnt[np.isnan(__cnt)] = 1
                 _cnt[np.isnan(_cnt)] = 0
                 _sum[np.isnan(_sum)] = 0
-                df_concat.loc[df_concat['clickTime_day'] == i,
-                              'cvt_' + vn] = _sum.astype('float64') / __cnt
+                df_concat.loc[df_concat['clickTime_day'] == i, 'cvt_' +
+                              vn] = _sum.astype('float64') / __cnt
                 if with_count:
-                    df_concat.loc[df_concat['clickTime_day']
-                                  == i, 'cnt_' + vn] = _cnt.astype('float64')
+                    df_concat.loc[df_concat['clickTime_day'] == i, 'cnt_' +
+                                  vn] = _cnt.astype('float64')
 
-            if _pre_cnt is not None and len(list(set(v_codes).intersection(set(_pre_cnt.index)))) != 0:
+            if _pre_cnt is not None and len(
+                    list(set(v_codes).intersection(set(_pre_cnt.index)))) != 0:
                 if with_pre_day_cvt and _pre_cnt is not None and _pre_sum is not None:
                     _cnt = _pre_cnt.loc[v_codes, :].values
                     _sum = _pre_sum.loc[v_codes, :].values
@@ -424,20 +486,20 @@ def get_hist_feature(hist_list, df_concat, with_count=True, with_pre_day_cvt=Tru
                     __cnt[np.isnan(__cnt)] = 1
                     _cnt[np.isnan(_cnt)] = 0
                     _sum[np.isnan(_sum)] = 0
-                    df_concat.loc[df_concat['clickTime_day'] == i,
-                                  'pre_cvt_' + vn] = _sum.astype('float64') / __cnt
+                    df_concat.loc[df_concat['clickTime_day'] == i, 'pre_cvt_' +
+                                  vn] = _sum.astype('float64') / __cnt
                     if with_pre_day_cnt:
-                        df_concat.loc[df_concat['clickTime_day']
-                                      == i, 'pre_cnt_' + vn] = _cnt.astype('float64')
+                        df_concat.loc[df_concat['clickTime_day'] == i,
+                                      'pre_cnt_' + vn] = _cnt.astype('float64')
 
             elif _pre_cnt is None and _pre_sum is None:  # 第17天的前一天 设置为第17天本身
-                df_concat.loc[df_concat['clickTime_day'] == i,
-                              'pre_cvt_' + vn] = df_concat.loc[df_concat['clickTime_day'] == i,
-                                                               'cvt_' + vn]
+                df_concat.loc[df_concat['clickTime_day'] == i, 'pre_cvt_' +
+                              vn] = df_concat.loc[df_concat['clickTime_day'] ==
+                                                  i, 'cvt_' + vn]
                 if with_pre_day_cnt:
-                    df_concat.loc[df_concat['clickTime_day']
-                                  == i, 'pre_cnt_' + vn] = df_concat.loc[df_concat['clickTime_day']
-                                                                         == i, 'cnt_' + vn]
+                    df_concat.loc[df_concat['clickTime_day'] == i, 'pre_cnt_' +
+                                  vn] = df_concat.loc[df_concat[
+                                      'clickTime_day'] == i, 'cnt_' + vn]
 
             _pre_cnt = pre_cnt
             _pre_sum = pre_sum
@@ -543,10 +605,12 @@ def get_feature(for_train=True):
 
     """
     if for_train:
-        df_file = read_as_pandas(FILE_TRAIN)
-
+        # df_file = read_as_pandas(FILE_TRAIN)
+        df_file = pd.read_hdf('../../train_days27.hdf5')
+        # df_file = pd.read_csv('../../train_days27.csv')
     else:
-        df_file = read_as_pandas(FILE_TEST)
+        # df_file = read_as_pandas(FILE_TEST)
+        df_file = pd.read_hdf('../../test.hdf5')
 
     print '== get click feature ===='
     df_file = get_click_features(df_file)
@@ -588,95 +652,106 @@ def get_feature(for_train=True):
 
     # installed app related
     # 用户已安装列表是否存在该应用、同类应用的数量、所占比例、该用户已经安装app的数量
-    print '== get install feature =='
-    df_installed = read_as_pandas(FILE_USER_INSTALLEDAPPS)
+    # print '== get install feature =='
+    # df_installed = read_as_pandas(FILE_USER_INSTALLEDAPPS)
 
-    df_group_cnt = df_installed.groupby('userID').count().rename(
-        columns={'appID': 'inst_cnt_installed'}).reset_index()
-    df_installed_cate = pd.merge(
-        df_installed, df_app_category, how='left', on='appID')
-    df_group_cnt_user_appcate = df_installed_cate.groupby(['userID', 'appCategory']).count().reset_index().rename(
-        columns={'appID': 'inst_cnt_appcate'})
-    df_percent = pd.merge(df_group_cnt_user_appcate, df_group_cnt, how='left',
-                          on='userID')  # userID, appCategory, inst_cnt_installed, inst_cnt_appcate
-    df_percent['inst_cate_percent'] = df_percent['inst_cnt_appcate'].astype(float) / df_percent[
-        'inst_cnt_installed']  # inst_cate_percent
-    df_result = pd.merge(df_result, df_percent, how='left',
-                         on=['userID', 'appCategory'])
+    # df_group_cnt = df_installed.groupby('userID').count().rename(
+    #     columns={'appID': 'inst_cnt_installed'}).reset_index()
+    # df_installed_cate = pd.merge(
+    #     df_installed, df_app_category, how='left', on='appID')
+    # df_group_cnt_user_appcate = df_installed_cate.groupby(['userID', 'appCategory']).count().reset_index().rename(
+    #     columns={'appID': 'inst_cnt_appcate'})
+    # df_percent = pd.merge(df_group_cnt_user_appcate, df_group_cnt, how='left',
+    #                       on='userID')  # userID, appCategory, inst_cnt_installed, inst_cnt_appcate
+    # df_percent['inst_cate_percent'] = df_percent['inst_cnt_appcate'].astype(float) / df_percent[
+    #     'inst_cnt_installed']  # inst_cate_percent
+    # df_result = pd.merge(df_result, df_percent, how='left',
+    #                      on=['userID', 'appCategory'])
 
-    df_result['inst_cate_percent'].fillna(0.0, inplace=True)  # 同类应用比例
-    df_result['inst_cnt_installed'].fillna(0, inplace=True)
+    # df_result['inst_cate_percent'].fillna(0.0, inplace=True)  # 同类应用比例
+    # df_result['inst_cnt_installed'].fillna(0, inplace=True)
 
-    df_installed['count'] = np.ones(df_installed.shape[0])
-    df_group_exist = df_installed.groupby(['userID', 'appID']).count().rename(
-        columns={'count': 'inst_is_installed'}).reset_index()
-    df_result = pd.merge(df_result, df_group_exist,
-                         how='left', on=['userID', 'appID'])
-    df_result['inst_is_installed'].fillna(0, inplace=True)
-    del df_installed['count']
+    # df_installed['count'] = np.ones(df_installed.shape[0])
+    # df_group_exist = df_installed.groupby(['userID', 'appID']).count().rename(
+    #     columns={'count': 'inst_is_installed'}).reset_index()
+    # df_result = pd.merge(df_result, df_group_exist,
+    #                      how='left', on=['userID', 'appID'])
+    # df_result['inst_is_installed'].fillna(0, inplace=True)
+    # del df_installed['count']
 
-    df_group_app = df_installed.groupby('appID').count().rename(
-        columns={'userID': 'inst_app_installed'}).reset_index()
-    df_result = pd.merge(df_result, df_group_app, on='appID', how='left')
-    df_result['inst_app_installed'].fillna(0, inplace=True)
+    # df_group_app = df_installed.groupby('appID').count().rename(
+    #     columns={'userID': 'inst_app_installed'}).reset_index()
+    # df_result = pd.merge(df_result, df_group_app, on='appID', how='left')
+    # df_result['inst_app_installed'].fillna(0, inplace=True)
 
-    df_result['inst_cnt_installed'] = df_result['inst_cnt_installed'].fillna(0).astype('int64')  # 用戶已經安裝的app個數
-    df_result['inst_is_installed'] = df_result['inst_is_installed'].fillna(0).astype('int64')  # 該app被安裝的次数
-    df_result['inst_cnt_appcate'] = df_result['inst_cnt_appcate'].fillna(0).astype('int64')  # 同类应用个数
-    df_result['inst_app_installed'] = df_result['inst_app_installed'].fillna(0).astype('int64')  # 该app被安装的次数
+    # df_result['inst_cnt_installed'] = df_result['inst_cnt_installed'].fillna(
+    #     0).astype('int64')  # 用戶已經安裝的app個數
+    # df_result['inst_is_installed'] = df_result['inst_is_installed'].fillna(
+    #     0).astype('int64')  # 該app被安裝的次数
+    # df_result['inst_cnt_appcate'] = df_result['inst_cnt_appcate'].fillna(
+    #     0).astype('int64')  # 同类应用个数
+    # df_result['inst_app_installed'] = df_result['inst_app_installed'].fillna(
+    #     0).astype('int64')  # 该app被安装的次数
 
     # 安裝流水中是否存在该应用
-    print '== get user actions feature =='
-    df_actions = read_as_pandas(FILE_USER_APP_ACTIONS)
+    # print '== get user actions feature =='
+    # df_actions = read_as_pandas(FILE_USER_APP_ACTIONS)
 
-    df_result['index'] = range(df_result.shape[0])
-    df_merge = pd.merge(df_actions, df_app_category, how='left', on='appID').rename(
-        columns={'appID': 'action_appID', 'appCategory': 'action_appCategory'})
-    df_merged = pd.merge(df_result, df_merge, on=['userID'], how='left')
-    df_merged['action_installed'] = (df_merged['clickTime'] > df_merged['installTime']) \
-                                    & (df_merged['action_appID'] == df_merged['appID'])
+    # df_result['index'] = range(df_result.shape[0])
+    # df_merge = pd.merge(df_actions, df_app_category, how='left', on='appID').rename(
+    #     columns={'appID': 'action_appID', 'appCategory': 'action_appCategory'})
+    # df_merged = pd.merge(df_result, df_merge, on=['userID'], how='left')
+    # df_merged['action_installed'] = (df_merged['clickTime'] > df_merged['installTime']) \
+    #     & (df_merged['action_appID'] == df_merged['appID'])
 
-    df_merged['action_cate'] = (df_merged['clickTime'] > df_merged['installTime']) \
-                               & (df_merged['appCategory'] == df_merged['action_appCategory'])
+    # df_merged['action_cate'] = (df_merged['clickTime'] > df_merged['installTime']) \
+    #     & (df_merged['appCategory'] == df_merged['action_appCategory'])
 
-    df_merged['action_cate_recent'] = (df_merged['clickTime'] > df_merged['installTime']) \
-                                      & (df_merged['clickTime'] - df_merged['installTime'] < 10000) \
-                                      & (df_merged['appCategory'] == df_merged['action_appCategory'])  # 最近两天同类
+    # df_merged['action_cate_recent'] = (df_merged['clickTime'] > df_merged['installTime']) \
+    #     & (df_merged['clickTime'] - df_merged['installTime'] < 10000) \
+    #     & (df_merged['appCategory'] == df_merged['action_appCategory'])  # 最近两天同类
 
-    df_merged['action_installed'] = df_merged['action_installed'].astype('int64')
-    df_merged['action_cate'] = df_merged['action_cate'].astype('int64')
-    df_merged['action_cate_recent'] = df_merged['action_cate_recent'].astype('int64')
+    # df_merged['action_installed'] = df_merged['action_installed'].astype(
+    #     'int64')
+    # df_merged['action_cate'] = df_merged['action_cate'].astype('int64')
+    # df_merged['action_cate_recent'] = df_merged['action_cate_recent'].astype(
+    #     'int64')
 
-    df_sum = pd.DataFrame(df_merged.loc[:, ['index', 'action_installed', 'action_cate', 'action_cate_recent']]) \
-        .groupby(['index']).sum().reset_index()
+    # df_sum = pd.DataFrame(df_merged.loc[:, ['index', 'action_installed', 'action_cate', 'action_cate_recent']]) \
+    #     .groupby(['index']).sum().reset_index()
 
-    df_result['action_installed'] = df_sum['action_installed'].fillna(0).astype('int64')  # 用户安装该app的次数
-    df_result['action_cate'] = df_sum['action_cate'].fillna(0).astype('int64')  # 用户安装该类别的次数
-    df_result['action_cate_recent'] = df_sum['action_cate_recent'].fillna(0).astype('int64')  # 用户最近两天安装该类别app的次数
+    # df_result['action_installed'] = df_sum['action_installed'].fillna(
+    #     0).astype('int64')  # 用户安装该app的次数
+    # df_result['action_cate'] = df_sum['action_cate'].fillna(
+    #     0).astype('int64')  # 用户安装该类别的次数
+    # df_result['action_cate_recent'] = df_sum['action_cate_recent'].fillna(
+    #     0).astype('int64')  # 用户最近两天安装该类别app的次数
 
     # 修正已安装数据
-    df_result['tt_is_installed'] = (df_result['inst_is_installed'] > 0) \
-                                   | (df_result['action_installed'] > 0)  # clickTime之前是否已经安装过
+    # df_result['tt_is_installed'] = (df_result['inst_is_installed'] > 0) \
+    #     | (df_result['action_installed'] > 0)  # clickTime之前是否已经安装过
 
-    df_result['tt_is_installed'] = df_result['tt_is_installed'].astype('int64')
-    df_result['tt_cnt_appcate'] = df_result['action_cate'] + \
-                                  df_result['inst_cnt_appcate']  # clickTime之前该app同类应用安装次数
-    df_result['tt_cnt_appcate'] = df_result['tt_cnt_appcate'].astype('int64')
+    # df_result['tt_is_installed'] = df_result['tt_is_installed'].astype('int64')
+    # df_result['tt_cnt_appcate'] = df_result['action_cate'] + \
+    #     df_result['inst_cnt_appcate']  # clickTime之前该app同类应用安装次数
+    # df_result['tt_cnt_appcate'] = df_result['tt_cnt_appcate'].astype('int64')
 
     # context
     print '== make context feature =='
     df_result['clickTime_day'] = pd.Series(
-        df_result['clickTime'].astype(str).str.slice(0, 2)).astype(int)
+        df_result['clickTime'].astype(int) // 1000000).astype(int)
     df_result['clickTime_hour'] = pd.Series(
-        df_result['clickTime'].astype(str).str.slice(2, 4)).astype(int)
+        df_result['clickTime'].astype(int) % 1000000 // 10000).astype(int)
     df_result['clickTime_minute'] = pd.Series(
-        df_result['clickTime'].astype(str).str.slice(4, 6)).astype(int)
+        df_result['clickTime'].astype(int) % 10000 // 100).astype(int)
+    df_result['clickTime_second'] = pd.Series(
+        df_result['clickTime'].astype(int) % 100).astype(int)
 
     df_result['clickTime_week'] = pd.Series(
-        np.floor(df_result['clickTime'].astype(int) / 10000) % 7).astype(int)
+        df_result['clickTime_day'] % 7).astype(int)
 
     # remove unrelated
-    to_drop += ['clickTime', 'index', ]
+    to_drop += ['clickTime']
 
     if for_train:
         to_drop += ['conversionTime']
@@ -697,49 +772,56 @@ def get_tf_feature(with_ohe=False, save=True, _shuffle=False):
         # df_test.fillna(0, inplace=True)
 
         df_concate = pd.concat([df_train, df_test], axis=0)
-        get_hist_feature(['userID',
-                          'creativeID',
-                          'positionID',
-                          'adID',
-                          'camgaignID',
-                          'advertiserID',
-                          'appID',
-                          'sitesetID',
-                          'appCategory',
-                          'appPlatform',
-                          'education',
-                          'gender',
-                          'haveBaby',
-                          'marriageStatus',
-                          'positionType',
-                          'hometown_c',
-                          'hometown_p',
-                          'residence_c',
-                          'residence_p',
-                          'telecomsOperator',
-                          'connectionType',
-                          'clickTime_week'], df_concat=df_concate)
+        get_hist_feature(
+            [
+                'userID',
+                'creativeID',
+                'positionID',
+                'adID',
+                'camgaignID',
+                'advertiserID',
+                'appID',
+                'sitesetID',
+                'appCategory',
+                #   'appPlatform',
+                #   'education',
+                #   'gender',
+                #   'haveBaby',
+                #   'marriageStatus',
+                #   'positionType',
+                #   'hometown_c',
+                #   'hometown_p',
+                #   'residence_c',
+                #   'residence_p',
+                #   'telecomsOperator',
+                'connectionType',
+                #   'clickTime_week',
+            ],
+            df_concat=df_concate)
 
         # cnt_creativeID_positionID
-        df_cnt_creativeID_positionID = get_cnt_creativeID_positionID()
-        df_concate = pd.merge(df_concate, df_cnt_creativeID_positionID, how='left', on=['creativeID', 'positionID'])
+        # df_cnt_creativeID_positionID = get_cnt_creativeID_positionID()
+        # df_concate = pd.merge(df_concate, df_cnt_creativeID_positionID, how='left', on=[
+        #                       'creativeID', 'positionID'])
         for column in df_concate.columns:
             print column, df_concate[column].dtype, df_concate[column].unique().shape, \
                 df_concate[column].min(), df_concate[column].max()
 
-        df_concate.instanceID.fillna(-1, inplace=True)
-        df_train = (df_concate.loc[df_concate.instanceID <= 0]).drop(
-            ['instanceID'], axis=1).copy()  # 重新赋值
+        # df_concate.instanceID.fillna(-1, inplace=True)
+        # df_train = (df_concate.loc[df_concate.instanceID <= 0]).drop(
+        #     ['instanceID'], axis=1).copy()  # 重新赋值
 
-        # if _shuffle:  # 不对
-        #     shuffle(df_train)
+        # # if _shuffle:  # 不对
+        # #     shuffle(df_train)
 
-        df_test = (df_concate.loc[df_concate.instanceID > 0]).copy()  # 重新赋值
-        # 根据instanceID来判断，并且排序 确保正确
+        # df_test = (df_concate.loc[df_concate.instanceID > 0]).copy()  # 重新赋值
+        # # 根据instanceID来判断，并且排序 确保正确
         df_test.sort_values('instanceID', inplace=True)
         if save:
-            df_train.to_csv('train.csv', index=False)
-            df_test.to_csv('test.csv', index=False)
+            # df_train.to_csv('train.csv', index=False)
+            # df_test.to_csv('test.csv', index=False)
+            df_train.to_hdf('train.hdf5', key='train.hdf5')
+            df_test.to_hdf('test.hdf5', key='test.hdf5')
     else:
         print '從文件加載特徵'
         df_train, not_ohe, df_test = pd.read_csv(
@@ -807,14 +889,16 @@ def split_train_test(x, y, test_size=0.2, stratify=True, with_df=False):
 
     else:
         if stratify:
-            train_x, test_x, train_y, test_y = train_test_split(x.drop(['label'], axis=1).values,
-                                                                x['label'].values,
-                                                                test_size=test_size,
-                                                                stratify=y)
+            train_x, test_x, train_y, test_y = train_test_split(
+                x.drop(['label'], axis=1).values,
+                x['label'].values,
+                test_size=test_size,
+                stratify=y)
         else:
-            train_x, test_x, train_y, test_y = train_test_split(x.drop(['label'], axis=1).values,
-                                                                x['label'].values,
-                                                                test_size=test_size)
+            train_x, test_x, train_y, test_y = train_test_split(
+                x.drop(['label'], axis=1).values,
+                x['label'].values,
+                test_size=test_size)
 
         def to_df(train_x, train_y, x):
             """
@@ -849,7 +933,6 @@ if __name__ == '__main__':
     # df = get_feature(False)
     # print df.head(5)
     # load_feature(from_file=True, with_ohe=False)
-    # get_tf_feature(with_ohe=False)
+    get_tf_feature(with_ohe=False)
     # get_cnt_creativeID_positionID()
     # get_hist_feature(['creativeID'], with_count=True)
-    gen_appdi_feature()
