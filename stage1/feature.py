@@ -383,7 +383,7 @@ def get_click_features(_df, distinct=True):
     df_pre.drop(['mindex', 'adID'], axis=1, inplace=True)
 
     print df_pre.shape
-    print df_pre.describe()
+    # print df_pre.describe()
     return df_pre
 
     # df['findex'] = range(df.shape[0])
@@ -437,7 +437,7 @@ def get_hist_feature(hist_list,
         # 第十七天使用当天的妆化率
         _pre_cnt = None
         _pre_sum = None
-        days = df_concat['clickTime_day'].unique().values
+        days = df_concat['clickTime_day'].unique()
         print days
         start = days[1]
         for i in days:
