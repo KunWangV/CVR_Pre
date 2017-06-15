@@ -21,7 +21,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, Grad
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import LeavePGroupsOut
 
-from data import *
+from data_utils import *
 from feature import *
 from to_FFM import *
 from to_LR import *

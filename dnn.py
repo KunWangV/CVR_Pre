@@ -4,96 +4,27 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import pandas as pd
-import pickle
-import numpy as np
-import os
-import math
-
-from feature.data import *
-
-from keras.layers import Concatenate, Conv1D, LocallyConnected1D, Dense, Dropout, Input, Embedding, concatenate
-from keras.models import Sequential, Model
-from keras.metrics import binary_accuracy
-from keras.preprocessing.image import ImageDataGenerator
-from keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard, ReduceLROnPlateau, Callback
-from keras.utils import to_categorical
-from keras.optimizers import Adam, RMSprop
-from keras import regularizers
-from keras import initializers
 import keras
+from keras import regularizers
+from keras.callbacks import ModelCheckpoint, TensorBoard, ReduceLROnPlateau, Callback
+from keras.layers import Dense, Dropout, Input, Embedding, concatenate
+from keras.models import Model
+from keras.optimizers import Adam
+from keras.utils import to_categorical
 
-import tensorflow as tf
 import loss
+from config import *
+from feature.data import *
+from utils import *
 
-real_cvt_feats = []
+callback_logloss = []
 
-real_cnt_feats = []
-
-real_other = []
-
-cate_low_dim = [
-    'age',
-    'appCategory',
-    'appPlatform',
-    'clickTime_day',
-    'clickTime_hour',
-    'clickTime_minute',
-    'clickTime_week',
-    'clickTime_seconds',
-    'connectionType',
-    'education',
-    'gender',
-    'haveBaby',
-    'hometown_c',
-    'hometown_p',
-    'marriageStatus',
-    'positionType',
-    'telecomsOperator',
-    'residence_c',
-    'residence_p',
-    'appID',
-    'sitesetID',
-]
-
-cate_high_dim = [
-    'adID',
-    'advertiserID',
-    'camgaignID',
-    'creativeID',
-    'positionID',
-    'userID',
-]
-
-cate_feats = cate_high_dim + cate_low_dim
-real_feats = real_cnt_feats + real_cvt_feats + real_other
-drop_feats = ['userID']
-
-
-class ColumnInfo(object):
-    """
-    每列信息类
-    """
-
-    def __init__(self, name, type, unique_size=None, dtype='int64'):
-        """
-        :param name: 列名
-        :param type:  category or real
-        :param unique_size: 最大值
-        :param dtype: 数据类型
-        """
-        self.name = name
-        self.type = type
-        self.unique_size = unique_size
-        self.dtype = dtype
-
-    def __str__(self):
-        return 'name: {}, type: {}, max value: {}, dtype: {}'.format(
-            self.name, self.type, self.unique_size, self.dtype)
+from argparse import ArgumentParser
 
 
 class PandasGenerator(object):
     """
+    一次读取
     """
 
     def __init__(self,
@@ -161,7 +92,7 @@ class PandasGenerator(object):
             x = self.df_x.iloc[self.seq[self.idx:self.length], :].values.copy()
             if self.df_y is not None:
                 y = self.df_y.iloc[self.seq[self.idx:
-                                            self.length], :].values.copy()
+                self.length], :].values.copy()
 
             self.idx = 0
             if self.shuffle:
@@ -208,7 +139,92 @@ class PandasGenerator(object):
         return self.length // i
 
 
+class PandasChunkGenerator():
+    """
+    """
+
+    def __init__(self,
+                 infos,
+                 filename,
+                 total_records,
+                 batch_size=100000,
+                 for_train=True,
+                 label_column='label',
+                 with_weight=False):
+        self.columns = get_columns_from_column_infos(infos)
+        self.reader = PandasChunkReader(filename, loop=True, chunk_size=batch_size)
+        self.for_train = for_train
+        self.label_column = label_column
+        self.length = total_records
+        self.idx = 0
+        self.df_y = None
+        self.with_weight = with_weight
+        self.batch_size = batch_size
+
+    def next(self):
+        self.idx += 1
+        if self.idx > self.n_per_epoch():
+            self.df_y = None
+
+        df = self.reader.next()
+        x = df.loc[:, self.columns]
+        x = x.values
+
+        if self.for_train:
+            y = df[self.label_column]
+            if self.df_y is None:
+                self.df_y = y
+
+            else:
+                self.df_y = pd.concat([self.df_y, y], axis=0)
+
+            y = y.values
+
+        inputs = np.split(x, x.shape[1], axis=1)
+        if self.for_train:
+            outputs = to_categorical(y, 2)
+            outputs = outputs[:, np.newaxis, :]
+
+            if self.with_weight:
+                weights = np.squeeze(y)
+                weights[weights == 1] = 1 / 0.026  # sample weight
+                weights[weights == 0] = 1
+
+                return inputs, outputs, weights
+            else:
+                return inputs, outputs
+
+        return inputs
+
+    def __iter__(self):
+        return self
+
+    def __len__(self):
+        return self.length
+
+    def n_per_epoch(self):
+        return np.ceil(self.length / float(self.batch_size))
+
+    def label(self):
+        if self.df_y is not None:
+            return self.df_y.values
+
+        return None
+
+    def max_batch_size(self):
+        i = 2
+        for i in range(1000, 100):
+            if self.length % i == 0:
+                break
+
+        return self.length // i
+
+
 class EvalCallback(Callback):
+    """
+    计算logloss
+    """
+
     def __init__(self, model, generator):
         super(EvalCallback, self).__init__()
         self.model = model
@@ -219,12 +235,12 @@ class EvalCallback(Callback):
                                             self.generator.n_per_epoch())
         print(pred.shape)
         ppred = np.squeeze(pred[:, :, 1])
-        loss.logloss(np.squeeze(self.generator.label()), ppred)
+        ll = loss.logloss(np.squeeze(self.generator.label()), ppred)
+        callback_logloss.append(ll)
 
 
-def get_model(column_info_list,
-              hidden_layers=[512, 256, 128],
-              batch_size=10000):
+def make_model(column_info_list,
+               hidden_layers=[512, 256, 128]):
     inputs = []
     real_inputs = []
     cate_inputs = []
@@ -233,12 +249,12 @@ def get_model(column_info_list,
     for column in column_info_list:
         if column.type == 'category':
             input = Input(
-                shape=(1, ),
+                shape=(1,),
                 dtype=column.dtype,
                 name='input_{}'.format(column.name))
             emb = Embedding(
                 output_dim=10,
-                input_dim=column.unique_size + 1,
+                input_dim=column.unique_size,
                 input_length=1,
                 embeddings_regularizer=regularizers.l1_l2(0.0001), )(input)
             embeddings.append(emb)
@@ -246,7 +262,7 @@ def get_model(column_info_list,
 
         elif column.type == 'real':
             input = Input(
-                shape=(1, ),
+                shape=(1,),
                 dtype=column.dtype,
                 name='input_{}'.format(column.name))
             real_inputs.append(input)
@@ -260,8 +276,8 @@ def get_model(column_info_list,
             activation='sigmoid',
             activity_regularizer=regularizers.l1(0.0001),
             kernel_regularizer=regularizers.l2(0.0001), )(x)
+        x = Dropout(0.8)(x)
 
-    x = Dropout(0.8)(x)
     output = Dense(
         2,
         activation='softmax',
@@ -272,117 +288,166 @@ def get_model(column_info_list,
     model = Model(inputs=inputs, outputs=output)
     model.summary()
     keras.utils.plot_model(model, to_file='model.png')
+    return model
 
+
+def train(model, batch_size, column_info_list, gen_train, gen_val):
     optimizer = Adam(lr=0.001)
     model.compile(
         optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
-    gen_train = PandasGenerator(
-        'df_trainx.csv',
-        'df_trainy.csv',
-        batch_size,
-        column_info_list,
-        shuffle=True,
-        with_weight=False,
-        for_train=True)
-    gen_test = PandasGenerator(
-        'df_testx.csv',
-        'df_testy.csv',
-        batch_size,
-        column_info_list,
-        shuffle=False,
-        with_weight=False,
-        for_train=False)
-
     callbacks = []
     callbacks.append(
         ModelCheckpoint(
-            filepath='dnn-model/weights.{epoch:02d}-{val_loss:.2f}.hdf5',
+            filepath='dnn-model/weights.{epoch:02d}.hdf5',
             monitor='val_loss',
             period=1))
-    callbacks.append(TensorBoard(log_dir='./logs', histogram_freq=1))
-    # callbacks.append(
-    #     ReduceLROnPlateau(
-    #         monitor='val_loss', factor=0.2, patience=5, min_lr=0.000001))
+    callbacks.append(TensorBoard(log_dir='./.logs', histogram_freq=1))
+    callbacks.append(
+        ReduceLROnPlateau(
+            monitor='val_loss', factor=0.2, patience=5, min_lr=0.000001))
 
-    callbacks.append(EvalCallback(model, gen_test))
+    callbacks.append(EvalCallback(model, gen_val))
 
     model.fit_generator(
         epochs=30,
         generator=gen_train,
-        validation_data=gen_test,
-        validation_steps=gen_test.n_per_epoch(),
+        validation_data=gen_val,
+        validation_steps=gen_val.n_per_epoch(),
         steps_per_epoch=gen_train.n_per_epoch(),
         # steps_per_epoch=10,
         callbacks=callbacks, )
 
-    gen_pre = PandasGenerator(
-        'df_basic_test.csv',
-        None,
-        batch_size,
-        column_info_list,
-        shuffle=False,
-        with_weight=False,
-        for_train=False)
 
+def predict(model, gen_pre, predict_name):
+    """
+    找最好的预测
+    :param model:
+    :param gen_pre:
+    :return:
+    """
+    lls = np.asarray(callback_logloss)
+    idx = lls.argmax()
+    model.load_weights('dnn-model/weights.{epoch:02d}.hdf5'.format(idx + 1))
     results = model.predict_generator(gen_pre, steps=gen_pre.n_per_epoch())
     df_result = pd.DataFrame(results.reshape(-1, 1))
     df_result.columns = ['pred']
-    df_result.to_csv('submission.csv', index=False)
+    df_result['instanceID'] = range(1, df_result.shape[0] + 1)
+    df_result.to_csv(predict_name, index=False)
 
 
-def gen_column_list(df, save=True, save_name='column_list.pkl'):
-    columns = df.columns.values
-    infos = []
-    for c in columns:
-        if c in cate_feats and c not in drop_feats:
-            print(c)
-            df[c] = df[c].astype('int64')
-            info = ColumnInfo(
-                name=c,
-                type='category',
-                unique_size=df[c].max(),
-                dtype='int64')
-
-            infos.append(info)
-
-        elif c in real_feats and c not in drop_feats:
-            print(c)
-            info = ColumnInfo(
-                name=c,
-                type='real',
-                dtype=str(df[c].dtype),
-                unique_size=None, )
-            infos.append(info)
-
-        else:
-            print('unknow column')
-
-    if save:
-        pickle.dump(infos, open(save_name, 'wb'))
-
-    return infos
+#
+# def main():
+#     infos = load_pickle(filename=COLUMN_LIST_FILENAME)
+#     print('train....')
+#
+#     batch_size = 10000
+#     gen_train = PandasChunkGenerator(
+#         infos,
+#         'train.hdf5',
+#         30000000,
+#     )
+#
+#     gen_val = PandasChunkGenerator(
+#         infos,
+#         'val.hdf5',
+#         30000000,
+#     )
+#
+#     model = make_model(infos, hidden_layers=[512, 512, 512])
+#     train(model, batch_size, infos, gen_train, gen_val)
+#
+#     gen_test = PandasChunkGenerator(
+#         infos,
+#         'test.hdf5',
+#         30000000,
+#     )
+#     predict(model, gen_test)
 
 
-def main():
-    if os.path.exists('column_list.pkl'):
-        infos = pickle.load(open('column_list.pkl', 'rb'))
+# def main_old(args):
+# infos = load_pickle(filename=COLUMN_LIST_FILENAME)
+# print('train....')
+#
+# batch_size = 10000
+#
+# gen_train = PandasGenerator(
+#     'df_trainx.csv',
+#     'df_trainy.csv',
+#     batch_size,
+#     infos,
+#     shuffle=True,
+#     with_weight=False,
+#     for_train=True)
+#
+# gen_test = PandasGenerator(
+#     'df_testx.csv',
+#     'df_testy.csv',
+#     batch_size,
+#     infos,
+#     shuffle=False,
+#     with_weight=False,
+#     for_train=False)
+#
+# gen_train = PandasChunkGenerator(
+#     infos,
+#     'train.hdf5',
+# )
+# model = make_model(infos, hidden_layers=[512, 512, 512])
+# train(model, batch_size, infos, gen_train, gen_test)
+#
+# gen_pre = PandasGenerator(
+#     'df_basic_test.csv',
+#     None,
+#     batch_size,
+#     infos,
+#     shuffle=False,
+#     with_weight=False,
+#     for_train=False)
+#
+# predict(model, gen_pre)
 
-    else:
-        print("generate column list")
-        df = pd.read_csv('df_basic_train.csv')
-        df['age'] = df['age'] // 5
-        del df['label']
-        infos = gen_column_list(df)
+def main(args):
+    infos = load_pickle(args.cinfo_path)
+
+    batch_size = args.batch_size
+    gen_train = PandasChunkGenerator(
+        infos,
+        args.train_path,
+        args.train_file_lines,
+    )
+
+    gen_val = PandasChunkGenerator(
+        infos,
+        args.val_path,
+        args.val_file_lines,
+    )
 
     print('train....')
-    get_model(infos, hidden_layers=[512, 512, 256, 256, 64], batch_size=10000)
+    model = make_model(infos, hidden_layers=args.hidden_layers)
+    train(model, batch_size, infos, gen_train, gen_val)
 
-    # 31419479, 27)
-    # (31419479, 1)
-    # (6493437, 27)
-    # (6493437, 1)
+    gen_test = PandasChunkGenerator(
+        infos,
+        args.test_path,
+        args.test_file_lines,
+    )
+    print('predicting ...')
+    predict(model, gen_test, args.predict_name)
 
 
 if __name__ == '__main__':
-    main()
+    parser = ArgumentParser()
+    parser.add_argument('cinfo_path', default=COLUMN_LIST_FILENAME)
+    parser.add_argument('batch_size', type=int, default=100000)
+    parser.add_argument('train_path', default='train.hdf5')
+    parser.add_argument('train_file_lines', require=True, type=int)
+    parser.add_argument('val_path', default='val.hdf5')
+    parser.add_argument('val_file_lines', require=True, type=int)
+    parser.add_argument('hidden_layers', type=list, default=[512, 512, 512])
+    parser.add_argument('test_path', default='test.hdf5')
+    parser.add_argument('test_file_lines', require=True, type=int)
+    parser.add_argument('predict_name', default='submission.dnn.csv')
+
+    args = parser.parse_args()
+    main(args)

@@ -13,7 +13,7 @@ import numpy as np
 from sklearn.utils import shuffle  
 
 
-from data import *
+from data_utils import *
 import pdb
 import pickle
 

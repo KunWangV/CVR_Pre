@@ -1,6 +1,8 @@
 # coding: utf-8
 
 import scipy as sp
+from __future__ import print_function
+
 
 def logloss(act, pred):
     """
@@ -15,5 +17,5 @@ def logloss(act, pred):
     ll = sum(act * sp.log(pred) + sp.subtract(1, act) * sp.log(
         sp.subtract(1, pred)))
     ll = ll * -1.0 / len(act)
-    print '-------------logloss-----------', ll
+    print('-------------logloss-----------', ll)
     return ll

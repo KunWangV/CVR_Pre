@@ -3,57 +3,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import pandas as pd
-import pickle
+from argparse import ArgumentParser
+
+from config import *
 from feature.data import *
-from feature.common import *
-
-real_cvt_feats = []
-
-real_cnt_feats = []
-
-real_other = []
-
-cate_low_dim = [
-    'age',
-    'appCategory',
-    'appPlatform',
-    'clickTime_day',
-    'clickTime_hour',
-    'clickTime_minute',
-    'clickTime_week',
-    'clickTime_seconds',
-    'connectionType',
-    'education',
-    'gender',
-    'haveBaby',
-    'hometown_c',
-    'hometown_p',
-    'marriageStatus',
-    'positionType',
-    'telecomsOperator',
-    'residence_c',
-    'residence_p',
-    'appID',
-    'sitesetID',
-]
-
-cate_high_dim = [
-    'adID',
-    'advertiserID',
-    'camgaignID',
-    'creativeID',
-    'positionID',
-    'userID',
-]
-
-cate_feats = cate_high_dim + cate_low_dim
-real_feats = real_cnt_feats + real_cvt_feats + real_other
-drop_feats = [
-    'userID',
-]
-
-all_feats = cate_feats + real_feats
+from utils import *
 
 infos = load_pickle('column_list.pkl')
 
@@ -81,7 +35,7 @@ def gen_file(df_x_path, df_y_path, out_filename, test=False, for_train=False):
 
             print(df_x.shape, df_x['clickTime_day'].unique())
             if for_train:
-                df_x = df_x.loc[df_x['clickTime_day'] >=23, :]
+                df_x = df_x.loc[df_x['clickTime_day'] >= 23, :]
                 if not test:
                     df_y = df_y.loc[df_x.index, :]
                     print(df_y.shape)
@@ -127,22 +81,74 @@ def gen_file(df_x_path, df_y_path, out_filename, test=False, for_train=False):
             print("Iteration is stopped.")
 
 
+def gen_file(df_path, out_filename, infos, for_train=False, chunk_size=100000):
+    df_reader = pd.read_csv(df_path, iterator=True)
+    loop = True
+    idx = 0
+    df_y = None
+    columns = get_columns_from_column_infos(infos)
+    while loop:
+        idx += 1
+        print('>>>>>>', idx)
+        try:
+            df_x = df_reader.get_chunk(chunk_size)
+            if for_train:
+                df_y = df_x['label']
+
+            df_x = df_x.loc[:, columns]
+
+            if df_x.shape[0] > 0:
+                df_x['age'] = df_x['age'].astype(int) // 5
+                print(df_x.shape)
+                feat_idx = 0
+                for field_idx, info in enumerate(infos):
+                    if info.name in drop_feats:
+                        continue
+
+                    print(info.name, )
+                    if info.type == 'category':
+                        df_x[info.name] = df_x[info.name] + feat_idx
+                        df_x[info.name] = "{}:".format(
+                            field_idx) + df_x[info.name].astype(str) + ':1'
+                        feat_idx += info.unique_size + 1
+                    else:
+                        df_x[info.name] = "{}:{}:".format(
+                            field_idx, feat_idx) + df_x[info.name].astype(str)
+                        feat_idx += 1
+
+                if not for_train:
+                    df_y = pd.DataFrame(
+                        np.ones((df_x.shape[0], 1), dtype='int') * -1,
+                        columns=['label'])
+
+                df_x.drop(drop_feats, axis=1, inplace=True)
+                df_result = pd.concat([df_y, df_x], axis=1)
+                print('shape to write', df_result.shape)
+                df_result.to_csv(
+                    out_filename,
+                    mode='a+',
+                    header=False,
+                    index=False,
+                    sep=' ')
+        except StopIteration:
+            loop = False
+            print("Iteration is stopped.")
+
+
+def main(args):
+    if args.ops == 'fmt_file':
+        gen_file(args.file_path, args.ffm_path, args.cinfo_path, for_train=args.for_train, chunk_size=args.chunk_size)
+
+
 if __name__ == '__main__':
-    gen_file(
-        'df_trainx.csv',
-        'df_trainy.csv',
-        'df_train.week.ffm',
-        False,
-        for_train=True)
-    gen_file(
-        'df_testx.csv',
-        'df_testy.csv',
-        'df_test.week.ffm',
-        False,
-        for_train=True)
-    # gen_file(
-    #     'df_basic_test.csv',
-    #     None,
-    #     'df_pred.ffm',
-    #     test=True,
-    #     for_train=False, )
+    parser = ArgumentParser()
+    sp = parser.add_subparsers(dest='ops')
+    p_file = sp.add_parser('fmt_file')
+    p_file.add_argument('cinfo_path', default=COLUMN_LIST_FILENAME)
+    p_file.add_argument('file_path')
+    p_file.add_argument('ffm_path')
+    p_file.add_argument('for_train', type=bool)
+    p_file.add_argument('chunk_size', type=int, default=100000)
+
+    args = parser.parse_args()
+    main(args)

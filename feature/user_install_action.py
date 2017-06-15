@@ -5,7 +5,8 @@ import numpy as np
 from feature.data import *
 
 # 用户已安装列表是否存在该应用、同类应用的数量、所占比例、该用户已经安装app的数量
-print '== get install feature =='
+print
+'== get install feature =='
 
 df_installed = read_as_pandas(FILE_USER_INSTALLEDAPPS)
 df_app_category = read_as_pandas(FILE_APP_CATEGORIES)
@@ -16,7 +17,7 @@ df_installed_cate = pd.merge(
     df_installed, df_app_category, how='left', on='appID')
 df_group_cnt_user_appcate = df_installed_cate.groupby(
     ['userID', 'appCategory']).count().reset_index().rename(
-        columns={'appID': 'inst_cnt_appcate'})
+    columns={'appID': 'inst_cnt_appcate'})
 df_percent = pd.merge(
     df_group_cnt_user_appcate, df_group_cnt, how='left',
     on='userID')  # userID, appCategory, inst_cnt_installed, inst_cnt_appcate

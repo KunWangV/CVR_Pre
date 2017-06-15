@@ -1,7 +1,7 @@
 # coding: utf-8
 import pandas as pd
 import numpy as np
-from data import *
+from data_utils import *
 from feature import *
 
 from sklearn.preprocessing import OneHotEncoder, PolynomialFeatures
@@ -323,10 +323,6 @@ if not os.path.exists("X_train.npz"):
     real_feats = real_cnt_feats + real_cvt_feats + real_other
     drop_feats = [
         'cnt_creativeID_positionID',
-        # 'postion_cri_day_click_cnt',
-        # 'position_day_click_cnt',
-        # 'rpt_day_click_cnt',
-        # 'postion_app_day_click_cnt',
     ]
 
     feats = cate_feats + real_feats
