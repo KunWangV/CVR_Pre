@@ -8,6 +8,12 @@ import pandas as pd
 import os
 import sys
 import numpy as np
+import gc
+
+
+def ensure_exits(dir_name):
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
 
 
 def get_spark_sesssion():
@@ -44,17 +50,17 @@ def read_hdf(filename):
     return pd.read_hdf(filename)
 
 
-def read_as_pandas(filename, by_chunk=False):
+def read_as_pandas(filename, by_chunk=False, chunk_size=100000):
     """
     读取文件
     :param filename:
     :return:
     """
     if filename.endswith('.hdf5') or filename.endswith('.hdf'):
-        return pd.read_hdf(filename, iterator=by_chunk)
+        return pd.read_hdf(filename, iterator=by_chunk, chunksize=chunk_size)
 
     else:
-        return pd.read_csv(filename, iterator=by_chunk)
+        return pd.read_csv(filename, iterator=by_chunk, chunksize=chunk_size)
 
 
 def save_pandas(df, filename, key=None, append=False):
@@ -66,12 +72,16 @@ def save_pandas(df, filename, key=None, append=False):
     :param append:
     :return:
     """
+
+    if df.shape[0] == 0:
+        return
+
     if key is None:
         key = filename
 
     if filename.endswith('.hdf5') or filename.endswith('.hdf'):
         if append:
-            df.to_hdf(filename, key=key, mode='a+', append=True)
+            df.to_hdf(filename, key=key, mode='a', append=True)
 
         else:
             df.to_hdf(filename, key=key)
@@ -173,6 +183,7 @@ def gen_column_info_list(df,
 
     return infos
 
+
 def get_columns_from_column_infos(infos):
     """
     获取列名
@@ -253,24 +264,20 @@ def map_by_chunk(filename, read_func, save_func, map_func, chunk_size=100000):
     :return:
     """
     m = read_func(filename)
-    loop = True
     idx = 0
-    while loop:
-        idx += 1
-        print(
-            idx, )
-        try:
-            chunk = m.get_chunk(chunk_size)
-            print(
-                chunk.shape, )
-            if map_func is not None:
-                chunk = map_func(chunk)
+    if not isinstance(m, pd.io.pytables.TableIterator):
+        m = iter(m)
 
-            print('after map', chunk.shape)
-            save_func(chunk)
-        except StopIteration:
-            loop = False
-            print("iteration stops")
+    for chunk in m:
+        idx += 1
+        print(idx, chunk.shape)
+        if map_func is not None:
+            chunk = map_func(chunk)
+
+        print('after map', chunk.shape)
+        save_func(chunk)
+        del chunk
+        gc.collect()
 
 
 def merge_by_chunk(
@@ -293,8 +300,7 @@ def merge_by_chunk(
     idx = 0
     while loop:
         idx += 1
-        print(
-            idx, )
+        print(idx)
         try:
             chunks = [m.get_chunk(chunk_size) for m in dfs]
             for i, df in enumerate(chunks):
