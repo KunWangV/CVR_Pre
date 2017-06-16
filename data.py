@@ -4,7 +4,7 @@ from utils import *
 
 def split_cv(train_file, days_for_val=2, start=17, end=30):
     """
-    交叉验证, 分割
+    交叉验证, 分割 train1 val1 train2 val2
     :param train_file:
     :param days_for_val:
     :param start:

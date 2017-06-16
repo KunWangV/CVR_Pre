@@ -10,6 +10,17 @@ import sys
 import numpy as np
 
 
+def get_spark_sesssion():
+    from pyspark.sql import SparkSession
+    sess = SparkSession.builder.appName('tencent') \
+        .config('spark.executor.memory', '4096m') \
+        .config('spark.driver.memory', '4096m') \
+        .master('local[4]') \
+        .getOrCreate()
+
+    return sess
+
+
 def save_as_hdf(df, filename, key=None):
     """
     保存模型
@@ -162,7 +173,6 @@ def gen_column_info_list(df,
 
     return infos
 
-
 def get_columns_from_column_infos(infos):
     """
     获取列名
@@ -221,7 +231,8 @@ def data_transform(df,
                 df[c] = df[c].astype('float32', copy=False)
 
             if to_log_real:
-                df.loc[df[c] > log_threshold, c] = np.power(np.log(df.loc[df[c] > log_threshold, c].values), 2)
+                df.loc[df[c] > log_threshold, c] = np.power(
+                    np.log(df.loc[df[c] > log_threshold, c].values), 2)
 
             if to_fill_na:
                 df[c].fillna(df[c].mean(), inplace=True)
