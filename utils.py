@@ -56,6 +56,7 @@ def read_as_pandas(filename, by_chunk=False, chunk_size=100000):
     :param filename:
     :return:
     """
+
     if filename.endswith('.hdf5') or filename.endswith('.hdf'):
         return pd.read_hdf(filename, iterator=by_chunk, chunksize=chunk_size)
 
@@ -326,18 +327,21 @@ class PandasChunkReader(object):
         :param chunk_size:
         :param loop: 一直循环，重复读取
         """
-        self.df = read_as_pandas(filename, iterator=True)
+        self.df = read_as_pandas(filename, iterator=True, chunk_size=self.chunk_size)
+        self.it = iter(self.df)
         self.filename = filename
         self.chunk_size = chunk_size
         self.loop = loop
         self.epoch = 0
 
     def reset_df(self):
-        self.df = read_as_pandas(self.filename, iterator=True)
+        self.df = read_as_pandas(self.filename, iterator=True, chunk_size=self.chunk_size)
+        self.it = iter(self.df)
 
     def next(self):
         try:
-            df_chunk = self.df.get_chunk(self.chunk_size)
+            df_chunk = self.it.next()
+            return df_chunk
         except StopIteration:
             if self.loop:
                 self.epoch += 1
@@ -345,3 +349,4 @@ class PandasChunkReader(object):
                 self.next()
             else:
                 print("iterator stops")
+

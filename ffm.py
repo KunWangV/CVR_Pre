@@ -82,57 +82,61 @@ def gen_file(df_x_path, df_y_path, out_filename, test=False, for_train=False):
 
 
 def gen_file(df_path, out_filename, infos, for_train=False, chunk_size=100000):
-    df_reader = pd.read_csv(df_path, iterator=True)
+    """
+
+    :param df_path:  path of dataframe with label
+    :param out_filename:
+    :param infos:
+    :param for_train:
+    :param chunk_size:
+    :return:
+    """
+    df_reader = pd.read_csv(df_path, iterator=True, chunksize=chunk_size)
     loop = True
     idx = 0
     df_y = None
     columns = get_columns_from_column_infos(infos)
-    while loop:
+    for df_x in df_reader:
         idx += 1
         print('>>>>>>', idx)
-        try:
-            df_x = df_reader.get_chunk(chunk_size)
-            if for_train:
-                df_y = df_x['label']
+        if for_train:
+            df_y = df_x['label']
 
-            df_x = df_x.loc[:, columns]
+        df_x = df_x.loc[:, columns]
 
-            if df_x.shape[0] > 0:
-                df_x['age'] = df_x['age'].astype(int) // 5
-                print(df_x.shape)
-                feat_idx = 0
-                for field_idx, info in enumerate(infos):
-                    if info.name in drop_feats:
-                        continue
+        if df_x.shape[0] > 0:
+            df_x['age'] = df_x['age'].astype(int) // 5
+            print(df_x.shape)
+            feat_idx = 0
+            for field_idx, info in enumerate(infos):
+                if info.name in drop_feats:
+                    continue
 
-                    print(info.name, )
-                    if info.type == 'category':
-                        df_x[info.name] = df_x[info.name] + feat_idx
-                        df_x[info.name] = "{}:".format(
-                            field_idx) + df_x[info.name].astype(str) + ':1'
-                        feat_idx += info.unique_size + 1
-                    else:
-                        df_x[info.name] = "{}:{}:".format(
-                            field_idx, feat_idx) + df_x[info.name].astype(str)
-                        feat_idx += 1
+                print(info.name, )
+                if info.type == 'category':
+                    df_x[info.name] = df_x[info.name] + feat_idx
+                    df_x[info.name] = "{}:".format(
+                        field_idx) + df_x[info.name].astype(str) + ':1'
+                    feat_idx += info.unique_size + 1
+                else:
+                    df_x[info.name] = "{}:{}:".format(
+                        field_idx, feat_idx) + df_x[info.name].astype(str)
+                    feat_idx += 1
 
-                if not for_train:
-                    df_y = pd.DataFrame(
-                        np.ones((df_x.shape[0], 1), dtype='int') * -1,
-                        columns=['label'])
+            if not for_train:
+                df_y = pd.DataFrame(
+                    np.ones((df_x.shape[0], 1), dtype='int') * -1,
+                    columns=['label'])
 
-                df_x.drop(drop_feats, axis=1, inplace=True)
-                df_result = pd.concat([df_y, df_x], axis=1)
-                print('shape to write', df_result.shape)
-                df_result.to_csv(
-                    out_filename,
-                    mode='a+',
-                    header=False,
-                    index=False,
-                    sep=' ')
-        except StopIteration:
-            loop = False
-            print("Iteration is stopped.")
+            df_x.drop(drop_feats, axis=1, inplace=True)
+            df_result = pd.concat([df_y, df_x], axis=1)
+            print('shape to write', df_result.shape)
+            df_result.to_csv(
+                out_filename,
+                mode='a+',
+                header=False,
+                index=False,
+                sep=' ')
 
 
 def main(args):
@@ -144,11 +148,11 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     sp = parser.add_subparsers(dest='ops')
     p_file = sp.add_parser('fmt_file')
-    p_file.add_argument('cinfo_path', default=COLUMN_LIST_FILENAME)
-    p_file.add_argument('file_path')
-    p_file.add_argument('ffm_path')
-    p_file.add_argument('for_train', type=bool)
-    p_file.add_argument('chunk_size', type=int, default=100000)
+    p_file.add_argument('--cinfo_path', default=COLUMN_LIST_FILENAME)
+    p_file.add_argument('--file_path')
+    p_file.add_argument('--ffm_path')
+    p_file.add_argument('--for_train', type=bool)
+    p_file.add_argument('--chunk_size', type=int, default=100000)
 
     args = parser.parse_args()
     main(args)
