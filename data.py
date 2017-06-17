@@ -55,9 +55,10 @@ def df_infos_summary(filename, save=True, save_name="column_summary.pkl"):
             infos.append(info)
             print(str(info))
         else:
-            print('unknow column....')
+            print('unknow column....', c)
 
-        save_pickle(infos, save_name)
+
+    save_pickle(infos, save_name)
 
 
 def split_cv(train_file, days_for_val=2, start=17, end=30, base_dir='./'):
@@ -70,7 +71,7 @@ def split_cv(train_file, days_for_val=2, start=17, end=30, base_dir='./'):
     :return:
     """
     ensure_exits(base_dir)
-    ss = range(start, end, 2)
+    ss = range(start, end, days_for_val)
     ee = ss[1:] + [end]
     periods = zip(ss, ee)
     for i, (s, e) in enumerate(periods):
