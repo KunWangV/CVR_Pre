@@ -8,6 +8,13 @@ import pandas as pd
 import os
 import sys
 import numpy as np
+import gc
+from argparse import ArgumentParser
+
+
+def ensure_exits(dir_name):
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
 
 
 def get_spark_sesssion():
@@ -44,17 +51,18 @@ def read_hdf(filename):
     return pd.read_hdf(filename)
 
 
-def read_as_pandas(filename, by_chunk=False):
+def read_as_pandas(filename, by_chunk=False, chunk_size=100000):
     """
     读取文件
     :param filename:
     :return:
     """
+
     if filename.endswith('.hdf5') or filename.endswith('.hdf'):
-        return pd.read_hdf(filename, iterator=by_chunk)
+        return pd.read_hdf(filename, iterator=by_chunk, chunksize=chunk_size)
 
     else:
-        return pd.read_csv(filename, iterator=by_chunk)
+        return pd.read_csv(filename, iterator=by_chunk, chunksize=chunk_size)
 
 
 def save_pandas(df, filename, key=None, append=False, index=True):
@@ -66,12 +74,16 @@ def save_pandas(df, filename, key=None, append=False, index=True):
     :param append:
     :return:
     """
+
+    if df.shape[0] == 0:
+        return
+
     if key is None:
         key = filename
 
     if filename.endswith('.hdf5') or filename.endswith('.hdf'):
         if append:
-            df.to_hdf(filename, key=key, mode='a+', append=True)
+            df.to_hdf(filename, key=key, mode='a', append=True)
 
         else:
             df.to_hdf(filename, key=key)
@@ -260,24 +272,20 @@ def map_by_chunk(filename, read_func, save_func, map_func, chunk_size=100000):
     :return:
     """
     m = read_func(filename)
-    loop = True
     idx = 0
-    while loop:
-        idx += 1
-        print(
-            idx, )
-        try:
-            chunk = m.get_chunk(chunk_size)
-            print(
-                chunk.shape, )
-            if map_func is not None:
-                chunk = map_func(chunk)
+    if not isinstance(m, pd.io.pytables.TableIterator):
+        m = iter(m)
 
-            print('after map', chunk.shape)
-            save_func(chunk)
-        except StopIteration:
-            loop = False
-            print("iteration stops")
+    for chunk in m:
+        idx += 1
+        print(idx, chunk.shape)
+        if map_func is not None:
+            chunk = map_func(chunk)
+
+        print('after map', chunk.shape)
+        save_func(chunk)
+        del chunk
+        gc.collect()
 
 
 def merge_by_chunk(
@@ -300,8 +308,7 @@ def merge_by_chunk(
     idx = 0
     while loop:
         idx += 1
-        print(
-            idx, )
+        print(idx)
         try:
             chunks = [m.get_chunk(chunk_size) for m in dfs]
             for i, df in enumerate(chunks):
@@ -327,18 +334,21 @@ class PandasChunkReader(object):
         :param chunk_size:
         :param loop: 一直循环，重复读取
         """
-        self.df = read_as_pandas(filename, iterator=True)
+        self.df = read_as_pandas(filename, iterator=True, chunk_size=self.chunk_size)
+        self.it = iter(self.df)
         self.filename = filename
         self.chunk_size = chunk_size
         self.loop = loop
         self.epoch = 0
 
     def reset_df(self):
-        self.df = read_as_pandas(self.filename, iterator=True)
+        self.df = read_as_pandas(self.filename, iterator=True, chunk_size=self.chunk_size)
+        self.it = iter(self.df)
 
     def next(self):
         try:
-            df_chunk = self.df.get_chunk(self.chunk_size)
+            df_chunk = self.it.next()
+            return df_chunk
         except StopIteration:
             if self.loop:
                 self.epoch += 1
@@ -346,3 +356,78 @@ class PandasChunkReader(object):
                 self.next()
             else:
                 print("iterator stops")
+
+
+
+def df_summary(df, outfile=None):
+    """
+    df or str
+    :param filename:
+    :return:
+    """
+    shape = None
+    if isinstance(df, str):
+        shape = read_as_pandas(df, by_chunk=False, chunk_size=None).shape
+    else:
+        shape = df.shape
+
+    if outfile is None:
+        outfile = 'df_summary_{}.pkl'.format(os.path.splitext(os.path.basename(df))[0])
+
+    ensure_exits(os.path.dirname(outfile))
+    save_pickle(np.asarray(shape), outfile)
+
+
+def df_summary_by_chunk(filename, outfile, chunk_size=100000):
+    """
+    读取 把行信息设置为
+    :param filename:
+    :param chunk_size:
+    :return:
+    """
+    global shape
+    shape = None
+
+    if outfile is None:
+        outfile = 'df_summary_{}.pkl'.format(os.path.splitext(os.path.basename(filename))[0])
+
+    def append(df):
+        nshape = np.asarray(df.shape)
+        global shape
+        if shape is None:
+            shape = nshape
+
+        else:
+            shape[0] += nshape[0]
+
+        return df
+
+    map_by_chunk(
+        filename,
+        map_func=lambda df: append(df),
+        read_func=lambda fname: read_as_pandas(fname, by_chunk=True, chunk_size=chunk_size),
+        save_func=lambda df: df,
+    )
+
+    print(shape, type(shape))
+
+    ensure_exits(os.path.dirname(filename))
+    save_pickle(shape, 'df_summary_{}.pkl'.format(os.path.splitext(os.path.basename(filename))[0]))
+
+
+def main(args):
+    if args.by_chunk:
+        df_summary_by_chunk(args.filename, args.outfile)
+
+    else:
+        df_summary(args.filename, args.outfile)
+
+
+if __name__ == '__main__':
+    parser = ArgumentParser()
+    parser.add_argument('--filename', type=str, required=True)
+    parser.add_argument('--by-chunk', type=bool, default=False)
+    parser.add_argument('--outfile', type=str)
+
+    args = parser.parse_args()
+    main(args)

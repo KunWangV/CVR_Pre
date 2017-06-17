@@ -27,4 +27,21 @@ import config
 # )
 
 
+"""
+增加一列
+"""
+s = 17
+e = 30
+
+def map_func1(df):
+    df['clickTime_day'] = df['clickTime'].astype(int) // 1000000
+    return df
+
+map_by_chunk(
+    '../train.csv',
+    read_func=lambda filename: read_as_pandas(filename, by_chunk=True),
+    map_func=map_func1,
+    save_func=lambda df: save_pandas(df, 'result.hdf5', append=True),
+)
+
 # dataframe summary

@@ -30,8 +30,8 @@ def main(args):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument("input_file", required=True)
-    parser.add_argument('output_file', required=True)
-    parser.add_argument('by_chunk', type=bool)
+    parser.add_argument("--input_file", required=True)
+    parser.add_argument('--output_file', required=True)
+    parser.add_argument('--by_chunk', type=bool)
     args = parser.parse_args()
     main(args)
