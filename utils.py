@@ -17,7 +17,23 @@ def ensure_exits(dir_name):
         os.makedirs(dir_name)
 
 
+def get_read_iter(m):
+    """
+    返回迭代器
+    :param m:
+    :return:
+    """
+    if not isinstance(m, pd.io.pytables.TableIterator):
+        m = iter(m)
+
+    return m
+
+
 def get_spark_sesssion():
+    """
+    打开session
+    :return:
+    """
     from pyspark.sql import SparkSession
     sess = SparkSession.builder.appName('tencent') \
         .config('spark.executor.memory', '16000m') \
@@ -217,7 +233,7 @@ def data_transform(
         to_fill_na=False,
         log_threshold=2, ):
     """
-
+    需要把所有的数据加载到内存
     :param df:
     :param real_feats:
     :param cate_feats:
@@ -235,7 +251,7 @@ def data_transform(
     if to_drop and len(drop_feats) > 0:
         df.drop(drop_feats, axis=1, inplace=True)
 
-    int_max = 2**31
+    int_max = 2 ** 31
     for c in columns:
         print(c)
         if c in cate_feats and c not in drop_feats:
@@ -257,8 +273,7 @@ def data_transform(
                 df[c].fillna(df[c].mean(), inplace=True)
 
         else:
-            print('unknow columns..... to drop')
-            del df[c]
+            print('unknow columns.....', columns)
 
 
 def map_by_chunk(filename, read_func, save_func, map_func, chunk_size=100000):
@@ -271,18 +286,20 @@ def map_by_chunk(filename, read_func, save_func, map_func, chunk_size=100000):
     :param chunk_size:
     :return:
     """
+    from tqdm import tqdm
+
     m = read_func(filename)
     idx = 0
     if not isinstance(m, pd.io.pytables.TableIterator):
         m = iter(m)
 
-    for chunk in m:
+    for chunk in tqdm(m):
         idx += 1
-        print(idx, chunk.shape)
+        # print(idx, chunk.shape)
         if map_func is not None:
             chunk = map_func(chunk)
 
-        print('after map', chunk.shape)
+        # print('after map', chunk.shape)
         save_func(chunk)
         del chunk
         gc.collect()
@@ -304,19 +321,21 @@ def merge_by_chunk(
     :return:
     """
     dfs = [read_func(filename) for filename in filenames]
+    dfs = [get_read_iter(m) for m in dfs]
     loop = True
     idx = 0
     while loop:
         idx += 1
         print(idx)
         try:
-            chunks = [m.get_chunk(chunk_size) for m in dfs]
+            chunks = [m.next() for m in dfs]
             for i, df in enumerate(chunks):
                 chunks[i] = map_func(i, df)
 
             df_result = pd.concat(chunks, axis=1)
             print(df_result.shape)
             save_func(df_result)
+            gc.collect()
         except StopIteration:
             loop = False
             print("iteration stops")
@@ -356,7 +375,6 @@ class PandasChunkReader(object):
                 self.next()
             else:
                 print("iterator stops")
-
 
 
 def df_summary(df, outfile=None):
