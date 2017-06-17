@@ -410,6 +410,15 @@ def predict(model, gen_pre, predict_name):
 def main(args):
     infos = load_pickle(args.cinfo_path)
 
+    if args.train_file_summary is not None:
+        args.train_file_lines = load_pickle(args.train_file_summary)[0]
+
+    if args.val_file_summary is not None:
+        args.val_file_lines = load_pickle(args.val_file_summary)[0]
+
+    if args.test_file_summary is not None:
+        args.test_file_lines = load_pickle(args.test_file_summary)[0]
+
     batch_size = args.batch_size
     gen_train = PandasChunkGenerator(
         infos,
@@ -441,12 +450,15 @@ if __name__ == '__main__':
     parser.add_argument('--cinfo_path', default=COLUMN_LIST_FILENAME)
     parser.add_argument('--batch_size', type=int, default=100000)
     parser.add_argument('--train_path', default='train.hdf5')
-    parser.add_argument('--train_file_lines', require=True, type=int)
+    parser.add_argument('--train_file_lines', type=int)
+    parser.add_argument('--test_file_lines', type=int)
+    parser.add_argument('--val_file_lines', type=int)
+    parser.add_argument('--train_file_summary', type=int)
+    parser.add_argument('--test_file_summary', type=int)
+    parser.add_argument('--val_file_summary', type=int)
     parser.add_argument('--val_path', default='val.hdf5')
-    parser.add_argument('--val_file_lines', require=True, type=int)
     parser.add_argument('--hidden_layers', type=list, default=[512, 512, 512])
     parser.add_argument('--test_path', default='test.hdf5')
-    parser.add_argument('--test_file_lines', require=True, type=int)
     parser.add_argument('--predict_name', default='submission.dnn.csv')
 
     args = parser.parse_args()
