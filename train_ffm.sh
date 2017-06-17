@@ -2,7 +2,7 @@
 # python ffm.py
 
 # 0.107/8 100
-# ../libffm/ffm-train -t 200 -l 0.0001 -k 15 -r 0.1 -s 8 -p df_test.ffm df_train.ffm model 
+# ../libffm/ffm-train -t 200 -l 0.0001 -k 15 -r 0.1 -s 8 -p df_test.ffm df_train.ffm model
 # ../libffm/ffm-train -t 200 -l 0.0001 -k 10 -r 0.05 -s 8 -p df_test.ffm df_train.ffm model
 # ../libffm/ffm-train -t 200 -l 0.0001 -k 30 -r 0.05 -s 8 -p df_test.ffm df_train.ffm model
 

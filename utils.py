@@ -13,8 +13,8 @@ import numpy as np
 def get_spark_sesssion():
     from pyspark.sql import SparkSession
     sess = SparkSession.builder.appName('tencent') \
-        .config('spark.executor.memory', '4096m') \
-        .config('spark.driver.memory', '4096m') \
+        .config('spark.executor.memory', '16000m') \
+        .config('spark.driver.memory', '16000m') \
         .master('local[4]') \
         .getOrCreate()
 
@@ -57,7 +57,7 @@ def read_as_pandas(filename, by_chunk=False):
         return pd.read_csv(filename, iterator=by_chunk)
 
 
-def save_pandas(df, filename, key=None, append=False):
+def save_pandas(df, filename, key=None, append=False, index=True):
     """
     保存 支持分chunk
     :param df:
@@ -77,9 +77,9 @@ def save_pandas(df, filename, key=None, append=False):
             df.to_hdf(filename, key=key)
     else:
         if append:
-            df.to_csv(filename, mode='a+')
+            df.to_csv(filename, mode='a+', index=index)
         else:
-            df.to_csv(filename, mode='a+')
+            df.to_csv(filename, index=index)
 
 
 def load_pickle(filename):
@@ -98,7 +98,14 @@ class ColumnInfo(object):
     每列信息类
     """
 
-    def __init__(self, name, type, max_val=None, min_val=None, total=None, unique_size=None, dtype='int64'):
+    def __init__(self,
+                 name,
+                 type,
+                 max_val=None,
+                 min_val=None,
+                 total=None,
+                 unique_size=None,
+                 dtype='int64'):
         """
         :param name: 列名
         :param type:  category or real
@@ -117,7 +124,8 @@ class ColumnInfo(object):
 
     def __str__(self):
         return 'name: {}, type: {}, max value: {}, min value {}, unique value: {}, dtype: {}'.format(
-            self.name, self.type, self.max_val, self.min_val, self.unique_size, self.dtype)
+            self.name, self.type, self.max_val, self.min_val, self.unique_size,
+            self.dtype)
 
 
 def gen_column_info_list(df,
@@ -148,8 +156,7 @@ def gen_column_info_list(df,
                 max_val=df[c].max(),
                 min_val=df[c].min(),
                 unique_size=df[c].unique(),
-                dtype='int64',
-            )
+                dtype='int64', )
 
             infos.append(info)
             print(str(info))
@@ -161,8 +168,7 @@ def gen_column_info_list(df,
                 dtype=str(df[c].dtype),
                 unique_size=None,
                 max_val=df[c].max(),
-                min_val=df[c].min(),
-            )
+                min_val=df[c].min(), )
             infos.append(info)
             print(str(info))
         else:
@@ -172,6 +178,7 @@ def gen_column_info_list(df,
         save_pickle(infos, save_name)
 
     return infos
+
 
 def get_columns_from_column_infos(infos):
     """
@@ -186,17 +193,17 @@ def get_columns_from_column_infos(infos):
     return column_list
 
 
-def data_transform(df,
-                   real_feats,
-                   cate_feats,
-                   drop_feats,
-                   to_cate=False,
-                   to_cvt_type=False,
-                   to_drop=False,
-                   to_log_real=False,
-                   to_fill_na=False,
-                   log_threshold=2,
-                   ):
+def data_transform(
+        df,
+        real_feats,
+        cate_feats,
+        drop_feats,
+        to_cate=False,
+        to_cvt_type=False,
+        to_drop=False,
+        to_log_real=False,
+        to_fill_na=False,
+        log_threshold=2, ):
     """
 
     :param df:
@@ -216,7 +223,7 @@ def data_transform(df,
     if to_drop and len(drop_feats) > 0:
         df.drop(drop_feats, axis=1, inplace=True)
 
-    int_max = 2 ** 31
+    int_max = 2**31
     for c in columns:
         print(c)
         if c in cate_feats and c not in drop_feats:
