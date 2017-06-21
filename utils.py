@@ -377,6 +377,29 @@ class PandasChunkReader(object):
                 print("iterator stops")
 
 
+def _txt(filenames, outfile, skip_header=True):
+    """
+    保存成txt
+    :param filenames:
+    :param outfile:
+    :param skip_header:
+    :return:
+    """
+    out = open(outfile, 'w')
+    for i, filename in enumerate(filenames):
+        print(i, filename)
+        with open(filename, 'r') as f:
+            if i != 0 and skip_header:
+                f.readline()
+
+            out.write(f.read())
+
+    out.close()
+
+
+def test_merge_txt():
+    append_txt(['../train.csv', '../test.csv'], skip_header=True, outfile='merged.csv')
+
 def df_summary(df, outfile=None):
     """
     df or str
@@ -442,10 +465,11 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser()
-    parser.add_argument('--filename', type=str, required=True)
-    parser.add_argument('--by-chunk', type=bool, default=False)
-    parser.add_argument('--outfile', type=str)
-
-    args = parser.parse_args()
-    main(args)
+    test_append_txt()
+    # parser = ArgumentParser()
+    # parser.add_argument('--filename', type=str, required=True)
+    # parser.add_argument('--by-chunk', type=bool, default=False)
+    # parser.add_argument('--outfile', type=str)
+    #
+    # args = parser.parse_args()
+    # main(args)

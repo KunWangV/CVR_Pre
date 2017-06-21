@@ -15,7 +15,7 @@ def df_infos_summary(filename, save=True, save_name="column_summary.pkl"):
     """
     sess = get_spark_sesssion()
     dataframe = sess.read.load(filename, format=os.path.splitext(filename)[
-                               1][1:], header=True, inferSchema=True)
+                                                    1][1:], header=True, inferSchema=True)
 
     mins = dataframe.groupby().min().collect()[0]
     maxs = dataframe.groupby().max().collect()[0]
@@ -57,7 +57,6 @@ def df_infos_summary(filename, save=True, save_name="column_summary.pkl"):
         else:
             print('unknow column....', c)
 
-
     save_pickle(infos, save_name)
 
 
@@ -80,9 +79,9 @@ def split_cv(train_file, days_for_val=2, start=17, end=30, base_dir='./'):
             read_func=lambda filename: read_as_pandas(
                 filename, by_chunk=True, chunk_size=100000),
             map_func=lambda df: df.loc[
-                (df['clickTime_day'] >= s) & (df['clickTime_day'] <= e), :],
+                                (df['clickTime_day'] >= s) & (df['clickTime_day'] <= e), :],
             save_func=lambda df: save_pandas(
-                df, base_dir + 'val{:02}.hdf5'.format(i + 1), append=True)
+                df, base_dir + 'val_{:02}.csv'.format(i + 1), append=True)
         )
 
         map_by_chunk(
@@ -90,16 +89,62 @@ def split_cv(train_file, days_for_val=2, start=17, end=30, base_dir='./'):
             read_func=lambda filename: read_as_pandas(
                 filename, by_chunk=True, chunk_size=100000),
             map_func=lambda df: df.loc[
-                (df['clickTime_day'] < s) | (df['clickTime_day'] > e), :],
+                                (df['clickTime_day'] < s) | (df['clickTime_day'] > e), :],
             save_func=lambda df: save_pandas(
-                df, base_dir + 'train{:02}.hdf5'.format(i + 1), append=True)
+                df, base_dir + 'train_{:02}.csv'.format(i + 1), append=True)
         )
 
 
-def main():
-    # split_cv('./result.hdf5', base_dir='cv/')
-    df_infos_summary('../train.csv')
+def split_window_cv(train_file, days_for_train=3, days_for_val=1, start=17, end=30, base_dir='./'):
+    """
+    交叉验证, 分割 train1 val1 train2 val2
+    :param train_file:
+    :param days_for_val:
+    :param start:
+    :param end:
+    :return:
+    """
+    ensure_exits(base_dir)
+    for i in range(end - days_for_train - days_for_val + 1):
+        train_start = start + i
+        train_end = train_start + days_for_train
+        train_name = base_dir + 'train_{:02}.csv'.format(i + 1)
 
+        map_by_chunk(
+            train_file,
+            read_func=lambda filename: read_as_pandas(
+                filename, by_chunk=True, chunk_size=100000),
+            map_func=lambda df: df.loc[
+                                (df['clickTime_day'] >= train_start) & (df['clickTime_day'] < train_end), :],
+            save_func=lambda df: save_pandas(
+                df, train_name, append=True, index=False)
+        )
 
-if __name__ == '__main__':
-    main()
+        val_start = train_end + 1
+        val_end = val_start + days_for_val
+        val_name = base_dir + 'val_{:02}.csv'.format(i + 1)
+
+        map_by_chunk(
+            train_file,
+            read_func=lambda filename: read_as_pandas(
+                filename, by_chunk=True, chunk_size=100000),
+            map_func=lambda df: df.loc[
+                                (df['clickTime_day'] >= val_start) & (df['clickTime_day'] < val_end), :],
+            save_func=lambda df: save_pandas(
+                df, val_name, append=True, index=False)
+        )
+
+        print('[{}, {}] [{}, {}]'.format(train_start, train_end, val_start, val_end))
+
+        merged_name = base_dir + 'merged_{:02}.csv'.format(i + 1)
+        merge_txt([train_name, val_name], merged_name, skip_header=True)
+
+        # generate summary
+        df_infos_summary(merged_name, save_name=base_dir + 'column_summary_{}.pkl'.format(i + 1))
+
+    def main():
+        # split_cv('./result.hdf5', base_dir='cv/')
+        df_infos_summary('../train.csv')
+
+    if __name__ == '__main__':
+        main()

@@ -46,4 +46,4 @@ def spark_gbdt(train_file, test_file, features_columns='userID'):
 
 
 if __name__ == '__main__':
-    spark_gbdt('../train.csv', '../test.csv')
+    spark_gbdt('../../train.csv', '../../test.csv')

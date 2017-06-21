@@ -41,7 +41,7 @@ map_by_chunk(
     '../train.csv',
     read_func=lambda filename: read_as_pandas(filename, by_chunk=True),
     map_func=map_func1,
-    save_func=lambda df: save_pandas(df, 'result.hdf5', append=True),
+    save_func=lambda df: save_pandas(df, '../train_dc.csv', append=True, index=False),
 )
 
 # dataframe summary
