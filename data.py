@@ -120,7 +120,7 @@ def split_window_cv(train_file, days_for_train=3, days_for_val=1, start=17, end=
                 df, train_name, append=True, index=False)
         )
 
-        val_start = train_end + 1
+        val_start = train_end
         val_end = val_start + days_for_val
         val_name = base_dir + 'val_{:02}.csv'.format(i + 1)
 

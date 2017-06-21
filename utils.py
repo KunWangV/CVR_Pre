@@ -88,6 +88,7 @@ def save_pandas(df, filename, key=None, append=False, index=True):
     :param filename:
     :param key:
     :param append:
+    :param index
     :return:
     """
 
@@ -105,7 +106,8 @@ def save_pandas(df, filename, key=None, append=False, index=True):
             df.to_hdf(filename, key=key)
     else:
         if append:
-            df.to_csv(filename, mode='a+', index=index)
+            with_header = not os.path.exists(filename)
+            df.to_csv(filename, mode='a', index=index, header=with_header)
         else:
             df.to_csv(filename, index=index)
 
@@ -286,23 +288,26 @@ def map_by_chunk(filename, read_func, save_func, map_func, chunk_size=100000):
     :param chunk_size:
     :return:
     """
-    from tqdm import tqdm
-
     m = read_func(filename)
     idx = 0
     if not isinstance(m, pd.io.pytables.TableIterator):
         m = iter(m)
 
-    for chunk in tqdm(m):
+    cnt = 0
+
+    for chunk in m:
         idx += 1
         # print(idx, chunk.shape)
         if map_func is not None:
             chunk = map_func(chunk)
 
+        cnt += chunk.shape[0]
         # print('after map', chunk.shape)
         save_func(chunk)
-        del chunk
-        gc.collect()
+        # del chunk
+        # gc.collect()
+
+    print('cnt', cnt)
 
 
 def merge_by_chunk(
@@ -377,7 +382,7 @@ class PandasChunkReader(object):
                 print("iterator stops")
 
 
-def _txt(filenames, outfile, skip_header=True):
+def merge_txt(filenames, outfile, skip_header=True):
     """
     保存成txt
     :param filenames:
@@ -399,6 +404,7 @@ def _txt(filenames, outfile, skip_header=True):
 
 def test_merge_txt():
     append_txt(['../train.csv', '../test.csv'], skip_header=True, outfile='merged.csv')
+
 
 def df_summary(df, outfile=None):
     """
