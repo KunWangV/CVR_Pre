@@ -403,7 +403,7 @@ def merge_txt(filenames, outfile, skip_header=True):
 
 
 def test_merge_txt():
-    append_txt(['../train.csv', '../test.csv'], skip_header=True, outfile='merged.csv')
+    merge_txt(['../train.csv', '../test.csv'], skip_header=True, outfile='merged.csv')
 
 
 def df_summary(df, outfile=None):
@@ -471,7 +471,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    test_append_txt()
+    test_merge_txt()
     # parser = ArgumentParser()
     # parser.add_argument('--filename', type=str, required=True)
     # parser.add_argument('--by-chunk', type=bool, default=False)

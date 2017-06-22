@@ -123,6 +123,12 @@ def split_window_cv(train_file, days_for_train=3, days_for_val=1, start=17, end=
         val_start = train_end
         val_end = val_start + days_for_val
         val_name = base_dir + 'val_{:02}.csv'.format(i + 1)
+        val_label_name = base_dir + 'val_label_{:02}.csv'.format(i + 1)
+
+        def split_save(df):
+            save_pandas(df, val_name, append=True, index=False)
+            df_label = pd.DataFrame(df.loc[:,['label']])
+            save_pandas(df_label, val_label_name, append=True, index=False)  # 保存label 方便合并
 
         map_by_chunk(
             train_file,
@@ -130,21 +136,14 @@ def split_window_cv(train_file, days_for_train=3, days_for_val=1, start=17, end=
                 filename, by_chunk=True, chunk_size=100000),
             map_func=lambda df: df.loc[
                                 (df['clickTime_day'] >= val_start) & (df['clickTime_day'] < val_end), :],
-            save_func=lambda df: save_pandas(
-                df, val_name, append=True, index=False)
+            save_func=split_save
         )
 
         print('[{}, {}] [{}, {}]'.format(train_start, train_end, val_start, val_end))
 
-        merged_name = base_dir + 'merged_{:02}.csv'.format(i + 1)
-        merge_txt([train_name, val_name], merged_name, skip_header=True)
+def main():
+    # split_cv('./result.hdf5', base_dir='cv/')
+    df_infos_summary('../train.csv')
 
-        # generate summary
-        df_infos_summary(merged_name, save_name=base_dir + 'column_summary_{}.pkl'.format(i + 1))
-
-    def main():
-        # split_cv('./result.hdf5', base_dir='cv/')
-        df_infos_summary('../train.csv')
-
-    if __name__ == '__main__':
-        main()
+if __name__ == '__main__':
+    main()

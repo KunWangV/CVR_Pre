@@ -12,9 +12,6 @@ from config import *
 from utils import *
 from data import *
 
-infos = load_pickle('column_list.pkl')
-
-
 def gen_file(df_x_path, df_y_path, out_filename, test=False, for_train=False):
     df_x_reader = pd.read_csv(df_x_path, iterator=True)
     if not test:
