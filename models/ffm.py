@@ -3,11 +3,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import sys
+sys.path.append('.')
+
 from argparse import ArgumentParser
 
 from config import *
-from feature.data import *
 from utils import *
+from data import *
 
 infos = load_pickle('column_list.pkl')
 

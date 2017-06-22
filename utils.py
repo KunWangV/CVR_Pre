@@ -307,7 +307,7 @@ def map_by_chunk(filename, read_func, save_func, map_func, chunk_size=100000):
         # del chunk
         # gc.collect()
 
-    print('cnt', cnt)
+    print(filename, 'cnt', cnt)
 
 
 def merge_by_chunk(

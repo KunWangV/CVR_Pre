@@ -153,7 +153,7 @@ cate_high_dim = [
     'camgaignID',
     'creativeID',
     'positionID',
-    # 'userID',
+    'userID',
 ]
 
 cate_feats = cate_high_dim + cate_low_dim
