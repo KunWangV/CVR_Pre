@@ -36,8 +36,8 @@ def get_spark_sesssion():
     """
     from pyspark.sql import SparkSession
     sess = SparkSession.builder.appName('tencent') \
-        .config('spark.executor.memory', '16000m') \
-        .config('spark.driver.memory', '16000m') \
+        .config('spark.executor.memory', '4096m') \
+        .config('spark.driver.memory', '4096m') \
         .master('local[4]') \
         .getOrCreate()
 
@@ -67,7 +67,7 @@ def read_hdf(filename):
     return pd.read_hdf(filename)
 
 
-def read_as_pandas(filename, by_chunk=False, chunk_size=100000):
+def read_as_pandas(filename, by_chunk=False, chunk_size=None):
     """
     读取文件
     :param filename:

@@ -13,6 +13,7 @@ def df_infos_summary(filename, save=True, save_name="column_summary.pkl"):
     :param save_name:
     :return:
     """
+    print("df_infos")
     sess = get_spark_sesssion()
     dataframe = sess.read.load(filename, format=os.path.splitext(filename)[
                                                     1][1:], header=True, inferSchema=True)

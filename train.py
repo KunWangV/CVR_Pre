@@ -7,16 +7,18 @@ from config import *
 总的训练模型 走流程
 """
 
-# train_file = '../train_ffm.csv'
-# test_file = '../test_ffm.csv'
-train_file = '../train.csv'
-test_file = '../test.csv'
+train_file = '../train_ffm.csv'
+test_file = '../test_ffm.csv'
+# train_file = '../train.csv'
+# test_file = '../test.csv'
 merged_file = '../total_ffm.csv'
 
 # merge_txt([train_file, test_file], merged_file, skip_header=True)  没用 忘记了train和test结构不一直
 
-df_train = read_as_pandas(train_file)
-df_test = read_as_pandas(test_file)
+df_train = read_as_pandas(train_file, chunk_size=None)
+print df_train.shape
+df_test = read_as_pandas(test_file, chunk_size=None)
+print df_test.shape
 df_merged = pd.concat([df_train, df_test])
 save_pandas(df_merged, merged_file, index=False)
 
