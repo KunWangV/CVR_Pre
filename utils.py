@@ -36,8 +36,8 @@ def get_spark_sesssion():
     """
     from pyspark.sql import SparkSession
     sess = SparkSession.builder.appName('tencent') \
-        .config('spark.executor.memory', '4096m') \
-        .config('spark.driver.memory', '4096m') \
+        .config('spark.executor.memory', '10240m') \
+        .config('spark.driver.memory', '10240m') \
         .master('local[4]') \
         .getOrCreate()
 
