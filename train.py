@@ -15,12 +15,12 @@ merged_file = '../total_ffm.csv'
 
 # merge_txt([train_file, test_file], merged_file, skip_header=True)  没用 忘记了train和test结构不一直
 
-df_train = read_as_pandas(train_file, chunk_size=None)
-print df_train.shape
-df_test = read_as_pandas(test_file, chunk_size=None)
-print df_test.shape
-df_merged = pd.concat([df_train, df_test])
-save_pandas(df_merged, merged_file, index=False)
+# df_train = read_as_pandas(train_file, chunk_size=None)
+# print df_train.shape
+# df_test = read_as_pandas(test_file, chunk_size=None)
+# print df_test.shape
+# df_merged = pd.concat([df_train, df_test])
+# save_pandas(df_merged, merged_file, index=False)
 
 # generate summary
 df_infos_summary(merged_file, save_name='column_summary.pkl')
