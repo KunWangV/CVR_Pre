@@ -93,6 +93,7 @@ def gen_file(df_path, out_filename, infos, for_train=False, chunk_size=100000):
     :param chunk_size:
     :return:
     """
+
     df_reader = pd.read_csv(df_path, iterator=True, chunksize=chunk_size)
     loop = True
     idx = 0
@@ -143,7 +144,8 @@ def gen_file(df_path, out_filename, infos, for_train=False, chunk_size=100000):
 
 def main(args):
     if args.ops == 'fmt_file':
-        gen_file(args.file_path, args.ffm_path, args.cinfo_path, for_train=args.for_train, chunk_size=args.chunk_size)
+        infos = load_pickle(args.cinfo_path)
+        gen_file(args.file_path, args.ffm_path, infos, for_train=args.for_train, chunk_size=args.chunk_size)
 
 
 if __name__ == '__main__':
