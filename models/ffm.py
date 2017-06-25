@@ -131,7 +131,7 @@ def gen_file(df_path, out_filename, infos, for_train=False, chunk_size=100000):
                     np.ones((df_x.shape[0], 1), dtype='int') * -1,
                     columns=['label'])
 
-            df_x.drop(drop_feats, axis=1, inplace=True)
+            df_x.drop(drop_feats, axis=1, inplace=True, errors='ignore')
             df_result = pd.concat([df_y, df_x], axis=1)
             print('shape to write', df_result.shape)
             df_result.to_csv(
