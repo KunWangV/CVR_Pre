@@ -61,6 +61,42 @@ def df_infos_summary(filename, save=True, save_name="column_summary.pkl"):
     save_pickle(infos, save_name)
 
 
+def normalize(data_file, train_file, test_file):
+    """
+    归一化
+    :param data_file:
+    :param train_file:
+    :param test_file:
+    :return:
+    """
+    from pyspark.ml.feature import StandardScaler, MinMaxScaler
+    sess = get_spark_sesssion()
+    dataframe = sess.read.load(data_file, format=os.path.splitext(data_file)[
+                                                     1][1:], header=True, inferSchema=True)
+
+    train_frame = sess.read.load(data_file, format=os.path.splitext(train_file)[
+                                                       1][1:], header=True, inferSchema=True)
+
+    test_frame = sess.read.load(data_file, format=os.path.splitext(test_file)[
+                                                      1][1:], header=True, inferSchema=True)
+    columns = dataframe.columns
+    for c in columns:
+        if c in real_cnt_feats or c == 'action_installed':
+            print(c)
+            model = MinMaxScaler(outputCol='std_' + c, inputCol=c)
+            model = model.fit(dataframe)
+            train_frame = model.transform(train_frame)
+            train_frame = train_frame.drop(c)
+            train_frame = train_frame.withColumnRenamed('std_' + c, c)
+
+            test_frame = model.transform(test_frame)
+            test_frame = test_frame.drop(c)
+            test_frame = test_frame.withColumnRenamed('std_' + c, c)
+
+    save_pandas(train_frame.toPandas(), 'train_nm.csv', index=False)
+    save_pandas(test_frame.toPandas(), 'test_nm.csv', index=False)
+
+
 def split_cv(train_file, days_for_val=2, start=17, end=30, base_dir='./'):
     """
     交叉验证, 分割 train1 val1 train2 val2
@@ -71,7 +107,7 @@ def split_cv(train_file, days_for_val=2, start=17, end=30, base_dir='./'):
     :return:
     """
     ensure_exits(base_dir)
-    ss = range(start, end, days_for_val)
+    ss = list(range(start, end, days_for_val))
     ee = ss[1:] + [end]
     periods = zip(ss, ee)
     for i, (s, e) in enumerate(periods):
@@ -106,7 +142,7 @@ def split_window_cv(train_file, days_for_train=3, days_for_val=1, start=17, end=
     :return:
     """
     ensure_exits(base_dir)
-    for i in range(end - days_for_train - days_for_val + 1):
+    for i in range(end - days_for_train - days_for_val + 2):
         train_start = start + i
         train_end = train_start + days_for_train
         train_name = base_dir + 'train_{:02}.csv'.format(i + 1)
@@ -128,7 +164,7 @@ def split_window_cv(train_file, days_for_train=3, days_for_val=1, start=17, end=
 
         def split_save(df):
             save_pandas(df, val_name, append=True, index=False)
-            df_label = pd.DataFrame(df.loc[:,['label']])
+            df_label = pd.DataFrame(df.loc[:, ['label']])
             save_pandas(df_label, val_label_name, append=True, index=False)  # 保存label 方便合并
 
         map_by_chunk(
@@ -142,9 +178,12 @@ def split_window_cv(train_file, days_for_train=3, days_for_val=1, start=17, end=
 
         print('[{}, {}] [{}, {}]'.format(train_start, train_end, val_start, val_end))
 
+
 def main():
     # split_cv('./result.hdf5', base_dir='cv/')
-    df_infos_summary('../train.csv')
+    # df_infos_summary('../train.csv')
+    normalize('../total_ffm.csv', '../train_ffm.csv', '../test_ffm.csv')
+
 
 if __name__ == '__main__':
     main()
