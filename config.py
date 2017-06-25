@@ -160,6 +160,7 @@ cate_feats = cate_high_dim + cate_low_dim
 real_feats = real_cnt_feats + real_cvt_feats + real_other
 drop_feats = [
     'cnt_creativeID_positionID',
+    'index',
 ]
 
 feats = cate_feats + real_feats
