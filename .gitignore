@@ -1,0 +1,10 @@
+*.pyc
+*.pkl
+*.ffm
+*.csv
+*.zip
+.idea/
+logs/
+*.hdf5
+.ipynb_checkpoints/
+spark-warehouse/
