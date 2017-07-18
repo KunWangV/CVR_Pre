@@ -1,3 +1,7 @@
+# CVR_Pre
+
+腾讯第一届算法大赛，top50解决方案
+
 ## data structure
 
 ``` python
@@ -96,4 +100,4 @@ user_installedapps.csv
 column: userID               unique size:    9850468 max:   20062197 min:          1
 column: appID                unique size:     377296 max:     433269 min:        354
 =====================================================
-```
+
